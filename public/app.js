@@ -195,18 +195,37 @@ function openStudentModal(studentId = null) {
               </div>
               <div class="mb-3">
                 <label class="form-label">Факультет *</label>
-                <input type="text" class="form-control" id="faculty" value="${formData.faculty}" required>
+                 <select class="form-select" id="faculty" required>
+                  <option value="">Оберіть факультет</option>
+                  <option value="ПІ" ${formData.faculty === 'ПІ' ? 'selected' : ''}>ПІ - Програмна інженерія</option>
+                  <option value="КІ" ${formData.faculty === 'КІ' ? 'selected' : ''}>КІ - Комп'ютерна інженерія</option>
+                  <option value="АТ" ${formData.faculty === 'АТ' ? 'selected' : ''}>АТ - Автомобільний транспорт</option>
+                  <option value="ЕК" ${formData.faculty === 'ЕК' ? 'selected' : ''}>ЕК - Економіка</option>
+                  </select>
               </div>
               <div class="mb-3">
                 <label class="form-label">Телефон</label>
-                <input type="tel" class="form-control" id="phone" value="${formData.phone || ''}" placeholder="+380501234567">
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Паспорт</label>
-                <input type="text" class="form-control" id="passport" value="${formData.passport || ''}" placeholder="АА123456">
-              </div>
-            </form>
-          </div>
+                  <input type="tel" 
+                    class="form-control" 
+                    id="phone" 
+                    value="${formData.phone || ''}" 
+                    placeholder="+380501234567"
+                    pattern="\\+380\\d{9}"
+                    title="Формат: +380XXXXXXXXX (9 цифр після +380)">
+                   <small class="text-muted">Формат: +380501234567</small>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Паспорт</label>
+                  <input type="text" 
+                        class="form-control" 
+                        id="passport" 
+                        value="${formData.passport || ''}" 
+                        placeholder="АА123456"
+                        pattern="[A-ZА-ЯІЇЄҐ]{2}\\d{6}"
+                        maxlength="8"
+                        title="Формат: 2 великі літери + 6 цифр (наприклад: АА123456)">
+                  <small class="text-muted">Формат: АА123456 (2 літери + 6 цифр)</small>
+                </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
             <button type="button" class="btn btn-primary" onclick="saveStudent(${isEdit ? studentId : null})">Зберегти</button>
@@ -583,7 +602,7 @@ function displayPayments(payments) {
         <td>${payment.student_name}</td>
         <td>${months[payment.month - 1]}</td>
         <td>${payment.year}</td>
-        <td>${payment.amount.toFixed(2)}</td>
+        <td>${parseFloat(payment.amount).toFixed(2)}</td>
         <td>${payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('uk-UA') : '-'}</td>
         <td><span class="badge bg-${statusClass}">${statusText}</span></td>
         <td>
