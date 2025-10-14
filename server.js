@@ -13,7 +13,18 @@ app.use(express.static('public'));
 
 app.get('/api/students', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM students ORDER BY surname');
+    const sortBy = req.query.sortBy || 'id';      
+    const sortOrder = req.query.sortOrder || 'ASC';    
+
+    const allowedFields = ['id', 'surname', 'name', 'course', 'faculty', 'phone', 'passport'];
+    
+    if (!allowedFields.includes(sortBy)) {
+      return res.status(400).json({ error: 'Invalid sort field' });
+    }
+
+    const query = `SELECT * FROM students ORDER BY ${sortBy} ${sortOrder}`;
+    const result = await db.query(query);
+    
     res.json(result.rows);
   } catch (err) {
     console.error(err);

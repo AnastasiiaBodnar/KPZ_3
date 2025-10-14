@@ -1,5 +1,12 @@
 const API_URL = 'http://localhost:3000/api';
 
+let currentSort = {
+  students: { field: 'id', order: 'ASC' },
+  rooms: { field: 'id', order: 'ASC' },
+  accommodation: { field: 'id', order: 'ASC' },
+  payments: { field: 'id', order: 'ASC' }
+};
+
 function showLoading() {
   document.getElementById('loadingSpinner').classList.remove('d-none');
 }
@@ -97,10 +104,16 @@ async function loadStatistics() {
 
 let studentsData = [];
 
-async function loadStudents() {
+async function loadStudents(sortBy = null, sortOrder = null) {
   showLoading();
   try {
-    const response = await fetch(`${API_URL}/students`);
+    if (sortBy) {
+      currentSort.students.field = sortBy;
+      currentSort.students.order = sortOrder || 'ASC';
+    }
+    
+    const url = `${API_URL}/students?sortBy=${currentSort.students.field}&sortOrder=${currentSort.students.order}`;
+    const response = await fetch(url);
     studentsData = await response.json();
     displayStudents(studentsData);
   } catch (error) {
@@ -109,6 +122,18 @@ async function loadStudents() {
   }
   hideLoading();
 }
+
+function sortStudents(field) {
+  if (currentSort.students.field === field) {
+    currentSort.students.order = currentSort.students.order === 'ASC' ? 'DESC' : 'ASC';
+  } else {
+    currentSort.students.field = field;
+    currentSort.students.order = 'ASC';
+  }
+  
+  loadStudents();
+}
+
 
 function displayStudents(students) {
   document.getElementById('students-table').innerHTML = students.map(student => `
@@ -748,33 +773,6 @@ async function loadDebtors() {
     showAlert('Помилка завантаження боржників', 'danger');
   }
   hideLoading();
-}
-
-function sortTable(columnIndex, tableId) {
-  const table = document.getElementById(tableId);
-  const rows = Array.from(table.rows);
-  const isAscending = table.dataset.sortOrder !== 'asc';
-  
-  rows.sort((a, b) => {
-    const aValue = a.cells[columnIndex].textContent.trim();
-    const bValue = b.cells[columnIndex].textContent.trim();
-    
-    const aNum = parseFloat(aValue);
-    const bNum = parseFloat(bValue);
-    
-    if (!isNaN(aNum) && !isNaN(bNum)) {
-      return isAscending ? aNum - bNum : bNum - aNum;
-    }
-    
-    return isAscending 
-      ? aValue.localeCompare(bValue, 'uk')
-      : bValue.localeCompare(aValue, 'uk');
-  });
-  
-  table.innerHTML = '';
-  rows.forEach(row => table.appendChild(row));
-  
-  table.dataset.sortOrder = isAscending ? 'asc' : 'desc';
 }
 
 document.addEventListener('DOMContentLoaded', () => {

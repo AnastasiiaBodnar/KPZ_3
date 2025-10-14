@@ -93,7 +93,7 @@
   </div>
 
   <div class="container-fluid mt-4">
- 
+
     <div id="dashboard-section" class="content-section">
       <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Статистика</h2>
       <div class="row" id="statistics">
@@ -126,7 +126,13 @@
               </select>
             </div>
             <div class="col-md-3">
-              <input type="text" class="form-control" id="filterFaculty" placeholder="Факультет..." onkeyup="filterStudents()">
+              <select class="form-select" id="filterFaculty" onchange="filterStudents()">
+                <option value="">Всі факультети</option>
+                <option value="ПІ">ПІ - Програмна інженерія</option>
+                <option value="КІ">КІ - Комп'ютерна інженерія</option>
+                <option value="АТ">АТ - Автомобільний транспорт</option>
+                <option value="ЕК">ЕК - Економіка</option>
+              </select>
             </div>
             <div class="col-md-2">
               <button class="btn btn-secondary w-100" onclick="resetFilters()">
@@ -141,18 +147,29 @@
         <table class="table table-hover">
           <thead class="table-light">
             <tr>
-              <th onclick="sortTable(0, 'students-table')">ID <i class="bi bi-arrow-down-up"></i></th>
-              <th onclick="sortTable(1, 'students-table')">Прізвище <i class="bi bi-arrow-down-up"></i></th>
-              <th onclick="sortTable(2, 'students-table')">Ім'я <i class="bi bi-arrow-down-up"></i></th>
+              <th onclick="sortStudents('id')" style="cursor: pointer;">
+                ID <i class="bi bi-arrow-down-up"></i>
+              </th>
+              <th onclick="sortStudents('surname')" style="cursor: pointer;">
+                Прізвище <i class="bi bi-arrow-down-up"></i>
+              </th>
+              <th onclick="sortStudents('name')" style="cursor: pointer;">
+                Ім'я <i class="bi bi-arrow-down-up"></i>
+              </th>
               <th>По батькові</th>
-              <th onclick="sortTable(4, 'students-table')">Курс <i class="bi bi-arrow-down-up"></i></th>
-              <th>Факультет</th>
+              <th onclick="sortStudents('course')" style="cursor: pointer;">
+                Курс <i class="bi bi-arrow-down-up"></i>
+              </th>
+              <th onclick="sortStudents('faculty')" style="cursor: pointer;">
+                Факультет <i class="bi bi-arrow-down-up"></i>
+              </th>
               <th>Телефон</th>
               <th>Паспорт</th>
               <th>Дії</th>
             </tr>
           </thead>
           <tbody id="students-table">
+
           </tbody>
         </table>
       </div>
@@ -169,9 +186,9 @@
         <table class="table table-hover">
           <thead class="table-light">
             <tr>
-              <th onclick="sortTable(0, 'rooms-table')">ID</th>
-              <th onclick="sortTable(1, 'rooms-table')">Номер кімнати</th>
-              <th onclick="sortTable(2, 'rooms-table')">Поверх</th>
+              <th>ID</th>
+              <th>Номер кімнати</th>
+              <th>Поверх</th>
               <th>Блок</th>
               <th>Всього місць</th>
               <th>Зайнято</th>
@@ -180,6 +197,7 @@
             </tr>
           </thead>
           <tbody id="rooms-table">
+
           </tbody>
         </table>
       </div>
@@ -208,6 +226,7 @@
             </tr>
           </thead>
           <tbody id="accommodation-table">
+
           </tbody>
         </table>
       </div>
@@ -240,6 +259,7 @@
             </tr>
           </thead>
           <tbody id="payments-table">
+
           </tbody>
         </table>
       </div>
