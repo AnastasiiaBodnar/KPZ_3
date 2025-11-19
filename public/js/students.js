@@ -1,4 +1,6 @@
 let studentsData = [];
+let searchMatches = [];
+let currentSearchIndex = -1;
 
 async function loadStudents(sortBy = null, sortOrder = null) {
   showLoading();
@@ -30,11 +32,24 @@ function sortStudents(field) {
 }
 
 function displayStudents(students) {
-  document.getElementById('students-table').innerHTML = students.map(student => `
-    <tr>
+  const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+  
+  document.getElementById('students-table').innerHTML = students.map((student, index) => {
+    const matchesSearch = searchTerm && (
+      student.surname.toLowerCase().includes(searchTerm) || 
+      student.name.toLowerCase().includes(searchTerm)
+    );
+    
+    const isCurrentResult = matchesSearch && currentSearchIndex >= 0 && 
+                           searchMatches[currentSearchIndex] === index;
+    const rowClass = isCurrentResult ? 'table-active' : (matchesSearch ? 'table-warning' : '');
+    const rowId = matchesSearch ? `search-match-${index}` : '';
+    
+    return `
+    <tr class="${rowClass}" id="${rowId}">
       <td>${student.id}</td>
-      <td>${student.surname}</td>
-      <td>${student.name}</td>
+      <td>${highlightText(student.surname, searchTerm)}</td>
+      <td>${highlightText(student.name, searchTerm)}</td>
       <td>${student.patronymic || '-'}</td>
       <td>${student.course}</td>
       <td>${student.faculty}</td>
@@ -49,28 +64,113 @@ function displayStudents(students) {
         </button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
+}
+
+function highlightText(text, searchTerm) {
+  if (!searchTerm) return text;
+  
+  const regex = new RegExp(`(${searchTerm})`, 'gi');
+  return text.replace(regex, '<mark>$1</mark>');
+}
+
+function searchStudents() {
+  const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+  
+  if (!searchTerm) {
+    displayStudents(studentsData);
+    updateSearchCounter(0, 0);
+    document.getElementById('prevSearchBtn').disabled = true;
+    document.getElementById('nextSearchBtn').disabled = true;
+    return;
+  }
+
+  searchMatches = studentsData
+    .map((student, index) => ({
+      student,
+      index,
+      matches: student.surname.toLowerCase().includes(searchTerm) || 
+               student.name.toLowerCase().includes(searchTerm)
+    }))
+    .filter(item => item.matches)
+    .map(item => item.index);
+  
+  currentSearchIndex = searchMatches.length > 0 ? 0 : -1;
+
+  displayStudents(studentsData);
+
+  updateSearchCounter(searchMatches.length > 0 ? 1 : 0, searchMatches.length);
+  document.getElementById('prevSearchBtn').disabled = searchMatches.length === 0;
+  document.getElementById('nextSearchBtn').disabled = searchMatches.length === 0;
+
+  if (searchMatches.length > 0) {
+    scrollToSearchResult(0);
+  }
+}
+
+function navigateSearch(direction) {
+  if (searchMatches.length === 0) return;
+
+  currentSearchIndex += direction;
+
+  if (currentSearchIndex >= searchMatches.length) {
+    currentSearchIndex = 0;
+  } else if (currentSearchIndex < 0) {
+    currentSearchIndex = searchMatches.length - 1;
+  }
+
+  updateSearchCounter(currentSearchIndex + 1, searchMatches.length);
+
+  displayStudents(studentsData);
+
+  scrollToSearchResult(currentSearchIndex);
+}
+
+function scrollToSearchResult(index) {
+  const element = document.getElementById(`search-match-${searchMatches[index]}`);
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function updateSearchCounter(current, total) {
+  const counter = document.getElementById('searchCounter');
+  if (total === 0) {
+    counter.textContent = '';
+  } else {
+    counter.textContent = `Результат ${current} з ${total}`;
+  }
 }
 
 function filterStudents() {
-  const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
   const courseFilter = document.getElementById('filterCourse').value;
   const facultyFilter = document.getElementById('filterFaculty').value;
   
   const filtered = studentsData.filter(student => {
-    const matchesSearch = student.surname.toLowerCase().includes(searchTerm) || student.name.toLowerCase().includes(searchTerm);
     const matchesCourse = !courseFilter || student.course == courseFilter;
     const matchesFaculty = !facultyFilter || student.faculty === facultyFilter;
-    return matchesSearch && matchesCourse && matchesFaculty;
+    return matchesCourse && matchesFaculty;
   });
   
   displayStudents(filtered);
+  
+  document.getElementById('searchStudent').value = '';
+  searchMatches = [];
+  currentSearchIndex = -1;
+  updateSearchCounter(0, 0);
+  document.getElementById('prevSearchBtn').disabled = true;
+  document.getElementById('nextSearchBtn').disabled = true;
 }
 
 function resetFilters() {
   document.getElementById('searchStudent').value = '';
   document.getElementById('filterCourse').value = '';
   document.getElementById('filterFaculty').value = '';
+  searchMatches = [];
+  currentSearchIndex = -1;
+  updateSearchCounter(0, 0);
+  document.getElementById('prevSearchBtn').disabled = true;
+  document.getElementById('nextSearchBtn').disabled = true;
   displayStudents(studentsData);
 }
 
@@ -198,4 +298,3 @@ async function deleteStudent(studentId) {
     showAlert('Помилка видалення', 'danger');
   }
 }
-

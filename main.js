@@ -13,7 +13,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    icon: path.join(__dirname, 'assets/icon.png'), // опціонально
+    icon: path.join(__dirname, 'assets/icon.png'), 
   });
 
   setTimeout(() => {
