@@ -92,6 +92,22 @@ app.delete('/api/students/:id', async (req, res) => {
   }
 });
 
+app.get('/api/students/available', async (req, res) => {
+  try {
+    const query = `
+      SELECT s.*
+      FROM students s
+      LEFT JOIN accommodation a ON s.id = a.student_id AND a.status = 'active'
+      WHERE a.id IS NULL
+      ORDER BY s.surname, s.name
+    `;
+    const result = await db.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
 app.get('/api/rooms', async (req, res) => {
   try {
@@ -182,6 +198,15 @@ app.post('/api/accommodation', async (req, res) => {
   try {
     const { student_id, room_id, date_in } = req.body;
 
+    const activeCheck = await db.query(
+      "SELECT id FROM accommodation WHERE student_id = $1 AND status = 'active'",
+      [student_id]
+    );
+
+    if (activeCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'Студент вже заселений в іншу кімнату.' });
+    }
+    
     const room = await db.query('SELECT * FROM rooms WHERE id = $1', [room_id]);
     if (room.rows.length === 0) {
       return res.status(404).json({ error: 'Room not found' });
@@ -194,6 +219,12 @@ app.post('/api/accommodation', async (req, res) => {
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [student_id, room_id, date_in || new Date(), 'active']
     );
+
+    await db.query(
+      'UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1',
+      [room_id]
+    );
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
@@ -205,6 +236,13 @@ app.put('/api/accommodation/:id/checkout', async (req, res) => {
   try {
     const { id } = req.params;
     const { date_out } = req.body;
+
+    const accRecord = await db.query('SELECT room_id FROM accommodation WHERE id = $1', [id]);
+    if (accRecord.rows.length === 0) {
+        return res.status(404).json({ error: 'Accommodation record not found' });
+    }
+    const room_id = accRecord.rows[0].room_id;
+    
     const result = await db.query(
       'UPDATE accommodation SET date_out = $1, status = $2 WHERE id = $3 RETURNING *',
       [date_out || new Date(), 'moved_out', id]
@@ -212,6 +250,11 @@ app.put('/api/accommodation/:id/checkout', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Accommodation not found' });
     }
+    await db.query(
+      'UPDATE rooms SET occupied_beds = occupied_beds - 1 WHERE id = $1',
+      [room_id]
+    );
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
