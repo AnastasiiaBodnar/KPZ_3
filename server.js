@@ -10,7 +10,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// STUDENTS - Управління студентами
 
+//отримання списку всіх студентів з можливістю сортування
 app.get('/api/students', async (req, res) => {
   try {
     const sortBy = req.query.sortBy || 'id';      
@@ -32,6 +34,7 @@ app.get('/api/students', async (req, res) => {
   }
 });
 
+//отримання одного студента
 app.get('/api/students/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -46,6 +49,7 @@ app.get('/api/students/:id', async (req, res) => {
   }
 });
 
+//додавання студента
 app.post('/api/students', async (req, res) => {
   try {
     const { surname, name, patronymic, course, faculty, phone, passport } = req.body;
@@ -60,6 +64,7 @@ app.post('/api/students', async (req, res) => {
   }
 });
 
+//редагування існуючого студента
 app.put('/api/students/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -92,6 +97,7 @@ app.delete('/api/students/:id', async (req, res) => {
   }
 });
 
+//отримання студентів які не заселенні
 app.get('/api/students/available', async (req, res) => {
   try {
     const query = `
@@ -109,6 +115,8 @@ app.get('/api/students/available', async (req, res) => {
   }
 });
 
+// ROOMS - Управління кімнатами
+
 app.get('/api/rooms', async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM rooms ORDER BY room_number');
@@ -119,6 +127,7 @@ app.get('/api/rooms', async (req, res) => {
   }
 });
 
+//отримання списку вільних кімнат
 app.get('/api/rooms/available', async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM rooms WHERE occupied_beds < total_beds ORDER BY room_number');
@@ -143,6 +152,7 @@ app.post('/api/rooms', async (req, res) => {
   }
 });
 
+//редагування
 app.put('/api/rooms/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -175,6 +185,7 @@ app.delete('/api/rooms/:id', async (req, res) => {
   }
 });
 
+// ACCOMMODATION - Управління заселенням
 
 app.get('/api/accommodation', async (req, res) => {
   try {
@@ -232,6 +243,7 @@ app.post('/api/accommodation', async (req, res) => {
   }
 });
 
+//виселення
 app.put('/api/accommodation/:id/checkout', async (req, res) => {
   try {
     const { id } = req.params;
@@ -261,6 +273,8 @@ app.put('/api/accommodation/:id/checkout', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// PAYMENTS - Управління оплатами
 
 app.get('/api/payments', async (req, res) => {
   try {
@@ -327,6 +341,8 @@ app.put('/api/payments/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// STATISTICS - Статистика для головної сторінки
 
 app.get('/api/statistics', async (req, res) => {
   try {
