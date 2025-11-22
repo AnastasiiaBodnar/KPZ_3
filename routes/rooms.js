@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-
-app.get('/api/rooms', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
@@ -55,7 +54,7 @@ app.get('/api/rooms', async (req, res) => {
   }
 });
 
-app.get('/api/rooms/available', async (req, res) => {
+router.get('/available', async (req, res) => {
   try {
     const result = await db.query(
       'SELECT * FROM rooms WHERE occupied_beds < total_beds ORDER BY floor, room_number'
@@ -67,7 +66,7 @@ app.get('/api/rooms/available', async (req, res) => {
   }
 });
 
-app.post('/api/rooms', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { room_number, floor, block, total_beds } = req.body;
     
@@ -91,7 +90,7 @@ app.post('/api/rooms', async (req, res) => {
   }
 });
 
-app.put('/api/rooms/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { room_number, floor, block, total_beds } = req.body;
@@ -128,7 +127,7 @@ app.put('/api/rooms/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/rooms/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -150,3 +149,5 @@ app.delete('/api/rooms/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;

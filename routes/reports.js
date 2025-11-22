@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-
 const PDFDocument = require('pdfkit');
 const xlsx = require('xlsx');
 
-app.get('/api/reports/students/excel', async (req, res) => {
+router.get('/students/excel', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
@@ -65,7 +64,7 @@ app.get('/api/reports/students/excel', async (req, res) => {
   }
 });
 
-app.get('/api/reports/debtors/pdf', async (req, res) => {
+router.get('/debtors/pdf', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
@@ -131,7 +130,7 @@ app.get('/api/reports/debtors/pdf', async (req, res) => {
   }
 });
 
-app.get('/api/reports/charts/faculty-stats', async (req, res) => {
+router.get('/charts/faculty-stats', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
@@ -152,7 +151,7 @@ app.get('/api/reports/charts/faculty-stats', async (req, res) => {
   }
 });
 
-app.get('/api/reports/charts/payments-by-month', async (req, res) => {
+router.get('/charts/payments-by-month', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT 
@@ -172,3 +171,5 @@ app.get('/api/reports/charts/payments-by-month', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+module.exports = router;

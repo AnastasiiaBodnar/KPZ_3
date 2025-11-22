@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "nodemon server.js",
+    "server": "node server.js",
     "build": "electron-builder"
   },
   "keywords": [

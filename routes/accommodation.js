@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-app.get('/api/accommodation', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
@@ -60,7 +60,7 @@ app.get('/api/accommodation', async (req, res) => {
   }
 });
 
-app.post('/api/accommodation', async (req, res) => {
+router.post('/', async (req, res) => {
   const client = await db.query('BEGIN');
   
   try {
@@ -110,7 +110,7 @@ app.post('/api/accommodation', async (req, res) => {
   }
 });
 
-app.post('/api/accommodation/:id/transfer', async (req, res) => {
+router.post('/:id/transfer', async (req, res) => {
   const client = await db.query('BEGIN');
   
   try {
@@ -175,7 +175,7 @@ app.post('/api/accommodation/:id/transfer', async (req, res) => {
   }
 });
 
-app.put('/api/accommodation/:id/checkout', async (req, res) => {
+router.put('/:id/checkout', async (req, res) => {
   const client = await db.query('BEGIN');
   
   try {
@@ -217,3 +217,5 @@ app.put('/api/accommodation/:id/checkout', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;
