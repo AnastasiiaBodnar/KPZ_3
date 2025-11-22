@@ -31,7 +31,7 @@ function displayTopDebtors(debtors) {
       <td>${debtor.faculty}</td>
       <td>${debtor.course} курс</td>
       <td>${debtor.phone || '-'}</td>
-      <td><span class="badge bg-warning">${debtor.unpaid_months}</span></td>
+      <td><span class="badge bg-warning">${debtor.unpaid_records}</span></td>
       <td><strong class="text-danger">${parseFloat(debtor.total_debt).toFixed(2)} грн</strong></td>
     </tr>
   `).join('');
@@ -90,8 +90,9 @@ function displayFloorsAnalytics(floors) {
 // Завантаження списку студентів у селектор
 async function loadStudentSelector() {
   try {
-    const response = await fetch(`${API_URL}/students`);
-    const students = await response.json();
+    const response = await fetch(`${API_URL}/students?limit=1000`);
+    const result = await response.json();
+    const students = result.data || result;
     
     const selector = document.getElementById('student-selector');
     selector.innerHTML = '<option value="">-- Оберіть студента --</option>' +

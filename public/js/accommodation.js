@@ -33,7 +33,7 @@ function displayAccommodation(accommodations) {
   const tbody = document.getElementById('accommodation-table');
   
   if (accommodations.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Записів про заселення не знайдено</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Записів про заселення не знайдено</td></tr>';
     return;
   }
   

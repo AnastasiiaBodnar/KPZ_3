@@ -49,7 +49,7 @@ function showSection(sectionName) {
       loadStudents(null, null, 1);
       break;
     case 'rooms':
-      loadRooms(1);
+      loadRooms();
       break;
     case 'accommodation':
       loadAccommodation(1);

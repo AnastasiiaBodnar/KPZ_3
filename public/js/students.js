@@ -15,9 +15,9 @@ async function loadStudents(sortBy = null, sortOrder = null, page = 1) {
     
     currentPage = page;
     
-    const search = document.getElementById('searchStudent').value;
-    const course = document.getElementById('filterCourse').value;
-    const faculty = document.getElementById('filterFaculty').value;
+    const search = document.getElementById('searchStudent')?.value || '';
+    const course = document.getElementById('filterCourse')?.value || '';
+    const faculty = document.getElementById('filterFaculty')?.value || '';
     
     const params = new URLSearchParams({
       sortBy: currentSort.students.field,
@@ -57,7 +57,7 @@ function sortStudents(field) {
 }
 
 function displayStudents(students) {
-  const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
+  const searchTerm = document.getElementById('searchStudent')?.value.toLowerCase() || '';
   
   const tbody = document.getElementById('students-table');
   
@@ -149,6 +149,8 @@ function scrollToSearchResult(index) {
 
 function updateSearchCounter(current, total) {
   const counter = document.getElementById('searchCounter');
+  if (!counter) return;
+  
   if (total === 0) {
     counter.textContent = '';
   } else {
@@ -162,14 +164,23 @@ function filterStudents() {
 }
 
 function resetFilters() {
-  document.getElementById('searchStudent').value = '';
-  document.getElementById('filterCourse').value = '';
-  document.getElementById('filterFaculty').value = '';
+  const searchInput = document.getElementById('searchStudent');
+  const courseFilter = document.getElementById('filterCourse');
+  const facultyFilter = document.getElementById('filterFaculty');
+  const prevBtn = document.getElementById('prevSearchBtn');
+  const nextBtn = document.getElementById('nextSearchBtn');
+  
+  if (searchInput) searchInput.value = '';
+  if (courseFilter) courseFilter.value = '';
+  if (facultyFilter) facultyFilter.value = '';
+  
   searchMatches = [];
   currentSearchIndex = -1;
   updateSearchCounter(0, 0);
-  document.getElementById('prevSearchBtn').disabled = true;
-  document.getElementById('nextSearchBtn').disabled = true;
+  
+  if (prevBtn) prevBtn.disabled = true;
+  if (nextBtn) nextBtn.disabled = true;
+  
   currentPage = 1;
   loadStudents(null, null, 1);
 }

@@ -3,8 +3,9 @@ let roomsData = [];
 async function loadRooms() {
   showLoading();
   try {
-    const response = await fetch(`${API_URL}/rooms`);
-    roomsData = await response.json();
+    const response = await fetch(`${API_URL}/rooms?limit=1000`);
+    const result = await response.json();
+    roomsData = result.data || result;
     displayRooms(roomsData);
   } catch (error) {
     console.error('Error loading rooms:', error);
@@ -14,7 +15,19 @@ async function loadRooms() {
 }
 
 function displayRooms(rooms) {
-  document.getElementById('rooms-table').innerHTML = rooms.map(room => {
+  const tbody = document.getElementById('rooms-table');
+  
+  if (!tbody) {
+    console.error('Table body not found');
+    return;
+  }
+  
+  if (rooms.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Кімнат не знайдено</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = rooms.map(room => {
     const availableBeds = room.total_beds - room.occupied_beds;
     const statusClass = availableBeds > 0 ? 'success' : 'danger';
     const statusText = availableBeds > 0 ? 'Доступна' : 'Зайнята';
@@ -27,6 +40,7 @@ function displayRooms(rooms) {
         <td>${room.block || '-'}</td>
         <td>${room.total_beds}</td>
         <td>${room.occupied_beds}</td>
+        <td>${availableBeds}</td>
         <td><span class="badge bg-${statusClass}">${statusText}</span></td>
         <td>
           <button class="btn btn-sm btn-warning btn-action" onclick="editRoom(${room.id})">

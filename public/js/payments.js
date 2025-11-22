@@ -37,7 +37,7 @@ function displayPayments(payments) {
   const tbody = document.getElementById('payments-table');
   
   if (payments.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Записів про оплати не знайдено</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Записів про оплати не знайдено</td></tr>';
     return;
   }
   
