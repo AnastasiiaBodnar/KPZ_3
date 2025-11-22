@@ -1,8 +1,11 @@
 let studentsData = [];
 let searchMatches = [];
 let currentSearchIndex = -1;
+let currentPage = 1;
+let totalPages = 1;
+const studentsPerPage = 50;
 
-async function loadStudents(sortBy = null, sortOrder = null) {
+async function loadStudents(sortBy = null, sortOrder = null, page = 1) {
   showLoading();
   try {
     if (sortBy) {
@@ -10,10 +13,32 @@ async function loadStudents(sortBy = null, sortOrder = null) {
       currentSort.students.order = sortOrder || 'ASC';
     }
     
-    const url = `${API_URL}/students?sortBy=${currentSort.students.field}&sortOrder=${currentSort.students.order}`;
+    currentPage = page;
+    
+    const search = document.getElementById('searchStudent').value;
+    const course = document.getElementById('filterCourse').value;
+    const faculty = document.getElementById('filterFaculty').value;
+    
+    const params = new URLSearchParams({
+      sortBy: currentSort.students.field,
+      sortOrder: currentSort.students.order,
+      page: currentPage,
+      limit: studentsPerPage,
+      search: search,
+      course: course,
+      faculty: faculty
+    });
+    
+    const url = `${API_URL}/students?${params}`;
     const response = await fetch(url);
-    studentsData = await response.json();
+    const result = await response.json();
+    
+    studentsData = result.data;
+    totalPages = result.pagination.totalPages;
+    
     displayStudents(studentsData);
+    displayPagination(result.pagination, 'students-pagination');
+    
   } catch (error) {
     console.error('Error loading students:', error);
     showAlert('Помилка завантаження студентів', 'danger');
@@ -34,7 +59,14 @@ function sortStudents(field) {
 function displayStudents(students) {
   const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
   
-  document.getElementById('students-table').innerHTML = students.map((student, index) => {
+  const tbody = document.getElementById('students-table');
+  
+  if (students.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">Студентів не знайдено</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = students.map((student, index) => {
     const matchesSearch = searchTerm && (
       student.surname.toLowerCase().includes(searchTerm) || 
       student.name.toLowerCase().includes(searchTerm)
@@ -45,21 +77,33 @@ function displayStudents(students) {
     const rowClass = isCurrentResult ? 'table-active' : (matchesSearch ? 'table-warning' : '');
     const rowId = matchesSearch ? `search-match-${index}` : '';
     
+    const debtBadge = student.total_debt > 0 
+      ? `<span class="badge bg-danger ms-2" title="Борг">${parseFloat(student.total_debt).toFixed(0)} грн</span>` 
+      : '';
+    
+    const accommodationBadge = student.is_accommodated
+      ? `<span class="badge bg-success" title="Заселений">Кімната ${student.room_number}</span>`
+      : '<span class="badge bg-secondary" title="Не заселений">Не заселений</span>';
+    
     return `
     <tr class="${rowClass}" id="${rowId}">
       <td>${student.id}</td>
-      <td>${highlightText(student.surname, searchTerm)}</td>
+      <td>${highlightText(student.surname, searchTerm)}${debtBadge}</td>
       <td>${highlightText(student.name, searchTerm)}</td>
       <td>${student.patronymic || '-'}</td>
       <td>${student.course}</td>
       <td>${student.faculty}</td>
       <td>${student.phone || '-'}</td>
       <td>${student.passport || '-'}</td>
+      <td>${accommodationBadge}</td>
       <td>
-        <button class="btn btn-sm btn-warning btn-action" onclick="editStudent(${student.id})">
+        <button class="btn btn-sm btn-info btn-action" onclick="viewStudentDetails(${student.id})" title="Деталі">
+          <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-sm btn-warning btn-action" onclick="editStudent(${student.id})" title="Редагувати">
           <i class="bi bi-pencil"></i>
         </button>
-        <button class="btn btn-sm btn-danger btn-action" onclick="deleteStudent(${student.id})">
+        <button class="btn btn-sm btn-danger btn-action" onclick="deleteStudent(${student.id})" title="Видалити">
           <i class="bi bi-trash"></i>
         </button>
       </td>
@@ -75,37 +119,9 @@ function highlightText(text, searchTerm) {
 }
 
 function searchStudents() {
-  const searchTerm = document.getElementById('searchStudent').value.toLowerCase();
-  
-  if (!searchTerm) {
-    displayStudents(studentsData);
-    updateSearchCounter(0, 0);
-    document.getElementById('prevSearchBtn').disabled = true;
-    document.getElementById('nextSearchBtn').disabled = true;
-    return;
-  }
-
-  searchMatches = studentsData
-    .map((student, index) => ({
-      student,
-      index,
-      matches: student.surname.toLowerCase().includes(searchTerm) || 
-               student.name.toLowerCase().includes(searchTerm)
-    }))
-    .filter(item => item.matches)
-    .map(item => item.index);
-  
-  currentSearchIndex = searchMatches.length > 0 ? 0 : -1;
-
-  displayStudents(studentsData);
-
-  updateSearchCounter(searchMatches.length > 0 ? 1 : 0, searchMatches.length);
-  document.getElementById('prevSearchBtn').disabled = searchMatches.length === 0;
-  document.getElementById('nextSearchBtn').disabled = searchMatches.length === 0;
-
-  if (searchMatches.length > 0) {
-    scrollToSearchResult(0);
-  }
+  // Скидаємо на першу сторінку при новому пошуку
+  currentPage = 1;
+  loadStudents(null, null, 1);
 }
 
 function navigateSearch(direction) {
@@ -120,9 +136,7 @@ function navigateSearch(direction) {
   }
 
   updateSearchCounter(currentSearchIndex + 1, searchMatches.length);
-
   displayStudents(studentsData);
-
   scrollToSearchResult(currentSearchIndex);
 }
 
@@ -143,23 +157,8 @@ function updateSearchCounter(current, total) {
 }
 
 function filterStudents() {
-  const courseFilter = document.getElementById('filterCourse').value;
-  const facultyFilter = document.getElementById('filterFaculty').value;
-  
-  const filtered = studentsData.filter(student => {
-    const matchesCourse = !courseFilter || student.course == courseFilter;
-    const matchesFaculty = !facultyFilter || student.faculty === facultyFilter;
-    return matchesCourse && matchesFaculty;
-  });
-  
-  displayStudents(filtered);
-  
-  document.getElementById('searchStudent').value = '';
-  searchMatches = [];
-  currentSearchIndex = -1;
-  updateSearchCounter(0, 0);
-  document.getElementById('prevSearchBtn').disabled = true;
-  document.getElementById('nextSearchBtn').disabled = true;
+  currentPage = 1;
+  loadStudents(null, null, 1);
 }
 
 function resetFilters() {
@@ -171,7 +170,72 @@ function resetFilters() {
   updateSearchCounter(0, 0);
   document.getElementById('prevSearchBtn').disabled = true;
   document.getElementById('nextSearchBtn').disabled = true;
-  displayStudents(studentsData);
+  currentPage = 1;
+  loadStudents(null, null, 1);
+}
+
+// Перегляд деталей студента
+async function viewStudentDetails(studentId) {
+  showLoading();
+  try {
+    const response = await fetch(`${API_URL}/students/${studentId}`);
+    const student = await response.json();
+    
+    document.getElementById('modals-container').innerHTML = `
+      <div class="modal fade" id="studentDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+              <h5 class="modal-title">
+                <i class="bi bi-person-circle"></i> ${student.surname} ${student.name} ${student.patronymic || ''}
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6 class="border-bottom pb-2">Особиста інформація</h6>
+                  <p><strong>ID:</strong> ${student.id}</p>
+                  <p><strong>ПІБ:</strong> ${student.surname} ${student.name} ${student.patronymic || ''}</p>
+                  <p><strong>Курс:</strong> ${student.course}</p>
+                  <p><strong>Факультет:</strong> ${student.faculty}</p>
+                  <p><strong>Телефон:</strong> ${student.phone || '-'}</p>
+                  <p><strong>Паспорт:</strong> ${student.passport || '-'}</p>
+                </div>
+                <div class="col-md-6">
+                  <h6 class="border-bottom pb-2">Заселення та оплати</h6>
+                  ${student.room_number ? `
+                    <p><strong>Кімната:</strong> ${student.room_number}</p>
+                    <p><strong>Поверх:</strong> ${student.floor}</p>
+                    <p><strong>Блок:</strong> ${student.block || '-'}</p>
+                    <p><strong>Дата заселення:</strong> ${new Date(student.accommodation_date).toLocaleDateString('uk-UA')}</p>
+                  ` : '<p class="text-muted">Студент не заселений</p>'}
+                  
+                  ${student.total_debt > 0 ? `
+                    <div class="alert alert-danger mt-3">
+                      <strong>Борг:</strong> ${parseFloat(student.total_debt).toFixed(2)} грн<br>
+                      <strong>Неоплачених періодів:</strong> ${student.unpaid_months}
+                    </div>
+                  ` : '<div class="alert alert-success mt-3">Немає боргів</div>'}
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрити</button>
+              <button type="button" class="btn btn-warning" onclick="bootstrap.Modal.getInstance(document.getElementById('studentDetailsModal')).hide(); editStudent(${studentId});">
+                <i class="bi bi-pencil"></i> Редагувати
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    
+    new bootstrap.Modal(document.getElementById('studentDetailsModal')).show();
+  } catch (error) {
+    console.error('Error loading student details:', error);
+    showAlert('Помилка завантаження деталей студента', 'danger');
+  }
+  hideLoading();
 }
 
 function openStudentModal(studentId = null) {
@@ -188,55 +252,70 @@ function openStudentModal(studentId = null) {
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">${isEdit ? 'Редагувати студента' : 'Додати студента'}</h5>
+            <h5 class="modal-title">
+              <i class="bi bi-person-${isEdit ? 'gear' : 'plus'}"></i> 
+              ${isEdit ? 'Редагувати студента' : 'Додати студента'}
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
             <form id="studentForm">
-              <div class="mb-3">
-                <label class="form-label">Прізвище *</label>
-                <input type="text" class="form-control" id="surname" value="${formData.surname}" required>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Ім'я *</label>
-                <input type="text" class="form-control" id="name" value="${formData.name}" required>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Прізвище *</label>
+                  <input type="text" class="form-control" id="surname" value="${formData.surname}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Ім'я *</label>
+                  <input type="text" class="form-control" id="name" value="${formData.name}" required>
+                </div>
               </div>
               <div class="mb-3">
                 <label class="form-label">По батькові</label>
                 <input type="text" class="form-control" id="patronymic" value="${formData.patronymic || ''}">
               </div>
-              <div class="mb-3">
-                <label class="form-label">Курс *</label>
-                <select class="form-select" id="course" required>
-                  <option value="">Оберіть курс</option>
-                  ${[1,2,3,4,5,6].map(c => `<option value="${c}" ${formData.course == c ? 'selected' : ''}>${c} курс</option>`).join('')}
-                </select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Факультет *</label>
-                <select class="form-select" id="faculty" required>
-                  <option value="">Оберіть факультет</option>
-                  <option value="ПІ" ${formData.faculty === 'ПІ' ? 'selected' : ''}>ПІ - Програмна інженерія</option>
-                  <option value="КІ" ${formData.faculty === 'КІ' ? 'selected' : ''}>КІ - Комп'ютерна інженерія</option>
-                  <option value="АТ" ${formData.faculty === 'АТ' ? 'selected' : ''}>АТ - Автоматизація</option>
-                  <option value="ЕК" ${formData.faculty === 'ЕК' ? 'selected' : ''}>ЕК - Економіка</option>
-                </select>
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Курс *</label>
+                  <select class="form-select" id="course" required>
+                    <option value="">Оберіть курс</option>
+                    ${[1,2,3,4,5,6].map(c => `<option value="${c}" ${formData.course == c ? 'selected' : ''}>${c} курс</option>`).join('')}
+                  </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label class="form-label">Факультет *</label>
+                  <select class="form-select" id="faculty" required>
+                    <option value="">Оберіть факультет</option>
+                    <option value="ПІ" ${formData.faculty === 'ПІ' ? 'selected' : ''}>ПІ - Програмна інженерія</option>
+                    <option value="КІ" ${formData.faculty === 'КІ' ? 'selected' : ''}>КІ - Комп'ютерна інженерія</option>
+                    <option value="АТ" ${formData.faculty === 'АТ' ? 'selected' : ''}>АТ - Автомобільний транспорт</option>
+                    <option value="ЕК" ${formData.faculty === 'ЕК' ? 'selected' : ''}>ЕК - Економіка</option>
+                  </select>
+                </div>
               </div>
               <div class="mb-3">
                 <label class="form-label">Телефон</label>
-                <input type="tel" class="form-control" id="phone" value="${formData.phone || ''}" placeholder="+380501234567" pattern="\\+380\\d{9}" title="Формат: +380XXXXXXXXX (9 цифр після +380)">
+                <input type="tel" class="form-control" id="phone" value="${formData.phone || ''}" 
+                       placeholder="+380501234567" pattern="\\+380\\d{9}" 
+                       title="Формат: +380XXXXXXXXX (9 цифр після +380)">
                 <small class="text-muted">Формат: +380501234567</small>
               </div>
               <div class="mb-3">
                 <label class="form-label">Паспорт</label>
-                <input type="text" class="form-control" id="passport" value="${formData.passport || ''}" placeholder="АА123456" pattern="[A-ZА-ЯІЇЄҐ]{2}\\d{6}" maxlength="8" style="text-transform: uppercase;" title="Формат: 2 великі літери + 6 цифр">
+                <input type="text" class="form-control" id="passport" value="${formData.passport || ''}" 
+                       placeholder="АА123456" pattern="[A-ZА-ЯІЇЄҐ]{2}\\d{6}" maxlength="8" 
+                       style="text-transform: uppercase;" 
+                       title="Формат: 2 великі літери + 6 цифр"
+                       oninput="this.value = this.value.toUpperCase()">
                 <small class="text-muted">Формат: АА123456 (2 літери + 6 цифр)</small>
               </div>
             </form>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-            <button type="button" class="btn btn-primary" onclick="saveStudent(${isEdit ? studentId : null})">Зберегти</button>
+            <button type="button" class="btn btn-primary" onclick="saveStudent(${isEdit ? studentId : null})">
+              <i class="bi bi-check-circle"></i> Зберегти
+            </button>
           </div>
         </div>
       </div>
@@ -246,14 +325,21 @@ function openStudentModal(studentId = null) {
 }
 
 async function saveStudent(studentId) {
+  const form = document.getElementById('studentForm');
+  
+  if (!form.checkValidity()) {
+    form.classList.add('was-validated');
+    return;
+  }
+  
   const formData = {
-    surname: document.getElementById('surname').value,
-    name: document.getElementById('name').value,
-    patronymic: document.getElementById('patronymic').value || null,
+    surname: document.getElementById('surname').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    patronymic: document.getElementById('patronymic').value.trim() || null,
     course: parseInt(document.getElementById('course').value),
     faculty: document.getElementById('faculty').value,
-    phone: document.getElementById('phone').value || null,
-    passport: document.getElementById('passport').value || null
+    phone: document.getElementById('phone').value.trim() || null,
+    passport: document.getElementById('passport').value.trim() || null
   };
   
   try {
@@ -264,13 +350,15 @@ async function saveStudent(studentId) {
       body: JSON.stringify(formData)
     });
     
+    const data = await response.json();
+    
     if (response.ok) {
       showAlert(studentId ? 'Студента оновлено' : 'Студента додано', 'success');
       bootstrap.Modal.getInstance(document.getElementById('studentModal')).hide();
-      loadStudents();
+      loadStudents(null, null, currentPage);
+      loadStatistics();
     } else {
-      const error = await response.json();
-      showAlert('Помилка: ' + error.error, 'danger');
+      showAlert('Помилка: ' + data.error, 'danger');
     }
   } catch (error) {
     console.error('Error saving student:', error);
@@ -283,15 +371,23 @@ function editStudent(studentId) {
 }
 
 async function deleteStudent(studentId) {
-  if (!confirm('Ви впевнені, що хочете видалити цього студента?')) return;
+  const student = studentsData.find(s => s.id === studentId);
+  const confirmText = student 
+    ? `Ви впевнені, що хочете видалити студента ${student.surname} ${student.name}?`
+    : 'Ви впевнені, що хочете видалити цього студента?';
+    
+  if (!confirm(confirmText)) return;
   
   try {
     const response = await fetch(`${API_URL}/students/${studentId}`, { method: 'DELETE' });
+    const data = await response.json();
+    
     if (response.ok) {
       showAlert('Студента видалено', 'success');
-      loadStudents();
+      loadStudents(null, null, currentPage);
+      loadStatistics();
     } else {
-      showAlert('Помилка видалення', 'danger');
+      showAlert('Помилка: ' + data.error, 'danger');
     }
   } catch (error) {
     console.error('Error deleting student:', error);
