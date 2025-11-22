@@ -53,6 +53,11 @@
       background-color: #cfe2ff !important;
       transition: background-color 0.3s;
     }
+    .pagination-container {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #dee2e6;
+    }
   </style>
 </head>
 <body>
@@ -117,12 +122,13 @@
 
   <div class="container-fluid mt-4">
 
+    <!-- Dashboard -->
     <div id="dashboard-section" class="content-section">
       <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Статистика</h2>
-      <div class="row" id="statistics">
-      </div>
+      <div class="row" id="statistics"></div>
     </div>
 
+    <!-- Students -->
     <div id="students-section" class="content-section d-none">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2><i class="bi bi-people"></i> Студенти</h2>
@@ -136,11 +142,17 @@
           <div class="row g-3">
             <div class="col-md-4">
               <div class="input-group">
-                <input type="text" class="form-control" id="searchStudent" placeholder="Пошук за прізвищем або ім'ям..." onkeyup="searchStudents()">
-                <button class="btn btn-outline-secondary" type="button" onclick="navigateSearch(-1)" id="prevSearchBtn" disabled title="Попередній результат (Shift+Enter)">
+                <input type="text" class="form-control" id="searchStudent" 
+                       placeholder="Пошук за прізвищем або ім'ям..." 
+                       onkeyup="searchStudents()">
+                <button class="btn btn-outline-secondary" type="button" 
+                        onclick="navigateSearch(-1)" id="prevSearchBtn" disabled 
+                        title="Попередній результат (Shift+Enter)">
                   <i class="bi bi-chevron-up"></i>
                 </button>
-                <button class="btn btn-outline-secondary" type="button" onclick="navigateSearch(1)" id="nextSearchBtn" disabled title="Наступний результат (Enter)">
+                <button class="btn btn-outline-secondary" type="button" 
+                        onclick="navigateSearch(1)" id="nextSearchBtn" disabled 
+                        title="Наступний результат (Enter)">
                   <i class="bi bi-chevron-down"></i>
                 </button>
               </div>
@@ -197,16 +209,17 @@
               </th>
               <th>Телефон</th>
               <th>Паспорт</th>
+              <th>Статус</th>
               <th>Дії</th>
             </tr>
           </thead>
-          <tbody id="students-table">
-
-          </tbody>
+          <tbody id="students-table"></tbody>
         </table>
+        <div id="students-pagination" class="pagination-container"></div>
       </div>
     </div>
 
+    <!-- Rooms -->
     <div id="rooms-section" class="content-section d-none">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2><i class="bi bi-door-open"></i> Кімнати</h2>
@@ -224,23 +237,33 @@
               <th>Блок</th>
               <th>Всього місць</th>
               <th>Зайнято</th>
+              <th>Вільно</th>
               <th>Статус</th>
               <th>Дії</th>
             </tr>
           </thead>
-          <tbody id="rooms-table">
-
-          </tbody>
+          <tbody id="rooms-table"></tbody>
         </table>
+        <div id="rooms-pagination" class="pagination-container"></div>
       </div>
     </div>
 
+    <!-- Accommodation -->
     <div id="accommodation-section" class="content-section d-none">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2><i class="bi bi-house-check"></i> Заселення</h2>
-        <button class="btn btn-primary" onclick="openAccommodationModal()">
-          <i class="bi bi-plus-circle"></i> Заселити студента
-        </button>
+        <div>
+          <select class="form-select d-inline-block me-2" style="width: auto;" 
+                  id="filterAccommodationStatus" onchange="filterAccommodation()">
+            <option value="">Всі статуси</option>
+            <option value="active" selected>Активні</option>
+            <option value="moved_out">Виселені</option>
+            <option value="transferred">Переселені</option>
+          </select>
+          <button class="btn btn-primary" onclick="openAccommodationModal()">
+            <i class="bi bi-plus-circle"></i> Заселити студента
+          </button>
+        </div>
       </div>
       <div class="table-container">
         <table class="table table-hover">
@@ -257,19 +280,27 @@
               <th>Дії</th>
             </tr>
           </thead>
-          <tbody id="accommodation-table">
-
-          </tbody>
+          <tbody id="accommodation-table"></tbody>
         </table>
+        <div id="accommodation-pagination" class="pagination-container"></div>
       </div>
     </div>
 
+    <!-- Payments -->
     <div id="payments-section" class="content-section d-none">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2><i class="bi bi-cash-coin"></i> Оплати</h2>
         <div>
+          <select class="form-select d-inline-block me-2" style="width: auto;" 
+                  id="filterPaymentStatus" onchange="filterPayments()">
+            <option value="">Всі статуси</option>
+            <option value="paid">Оплачені</option>
+            <option value="unpaid">Не оплачені</option>
+          </select>
+          <input type="number" class="form-control d-inline-block me-2" style="width: 100px;" 
+                 id="filterPaymentYear" placeholder="Рік" onchange="filterPayments()">
           <button class="btn btn-warning me-2" onclick="loadDebtors()">
-            <i class="bi bi-exclamation-triangle"></i> Показати боржників
+            <i class="bi bi-exclamation-triangle"></i> Боржники
           </button>
           <button class="btn btn-primary" onclick="openPaymentModal()">
             <i class="bi bi-plus-circle"></i> Додати оплату
@@ -282,7 +313,7 @@
             <tr>
               <th>ID</th>
               <th>Студент</th>
-              <th>Місяць</th>
+              <th>Період</th>
               <th>Рік</th>
               <th>Сума (грн)</th>
               <th>Дата оплати</th>
@@ -290,18 +321,16 @@
               <th>Дії</th>
             </tr>
           </thead>
-          <tbody id="payments-table">
-
-          </tbody>
+          <tbody id="payments-table"></tbody>
         </table>
+        <div id="payments-pagination" class="pagination-container"></div>
       </div>
     </div>
 
-    <!-- Секція Аналітика -->
+    <!-- Analytics -->
     <div id="analytics-section" class="content-section d-none">
       <h2 class="mb-4"><i class="bi bi-graph-up"></i> Аналітика</h2>
       
-      <!-- Топ боржників -->
       <div class="card mb-4">
         <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
           <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Топ 10 боржників</h5>
@@ -319,18 +348,16 @@
                   <th>Факультет</th>
                   <th>Курс</th>
                   <th>Телефон</th>
-                  <th>Неоплачених місяців</th>
+                  <th>Записів неоплати</th>
                   <th>Загальний борг (грн)</th>
                 </tr>
               </thead>
-              <tbody id="top-debtors-table">
-              </tbody>
+              <tbody id="top-debtors-table"></tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- Завантаженість по поверхах -->
       <div class="card mb-4">
         <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
           <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Завантаженість по поверхах</h5>
@@ -352,14 +379,12 @@
                   <th>Прогрес</th>
                 </tr>
               </thead>
-              <tbody id="floors-analytics-table">
-              </tbody>
+              <tbody id="floors-analytics-table"></tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- Пошук сусідів та однокурсників -->
       <div class="card mb-4">
         <div class="card-header bg-primary text-white">
           <h5 class="mb-0"><i class="bi bi-search"></i> Пошук зв'язків студента</h5>
@@ -374,7 +399,6 @@
             </div>
           </div>
 
-          <!-- Сусіди -->
           <div id="roommates-section" class="d-none mb-4">
             <h6 class="border-bottom pb-2"><i class="bi bi-people"></i> Сусіди по кімнаті</h6>
             <div class="table-responsive">
@@ -388,13 +412,11 @@
                     <th>Дата заселення</th>
                   </tr>
                 </thead>
-                <tbody id="roommates-table">
-                </tbody>
+                <tbody id="roommates-table"></tbody>
               </table>
             </div>
           </div>
 
-          <!-- Однокурсники -->
           <div id="coursemates-section" class="d-none">
             <h6 class="border-bottom pb-2"><i class="bi bi-mortarboard"></i> Однокурсники з того ж факультету</h6>
             <div class="alert alert-info" id="coursemates-info"></div>
@@ -409,8 +431,7 @@
                     <th>Борг (грн)</th>
                   </tr>
                 </thead>
-                <tbody id="coursemates-table">
-                </tbody>
+                <tbody id="coursemates-table"></tbody>
               </table>
             </div>
           </div>
@@ -418,11 +439,10 @@
       </div>
     </div>
 
-    <!-- Секція Звіти -->
+    <!-- Reports -->
     <div id="reports-section" class="content-section d-none">
       <h2 class="mb-4"><i class="bi bi-file-earmark-bar-graph"></i> Звіти та діаграми</h2>
 
-      <!-- Експорт даних -->
       <div class="card mb-4">
         <div class="card-header bg-success text-white">
           <h5 class="mb-0"><i class="bi bi-download"></i> Експорт даних</h5>
@@ -457,7 +477,6 @@
         </div>
       </div>
 
-      <!-- Діаграми - ЗМЕНШЕНІ -->
       <div class="card mb-4">
         <div class="card-header bg-primary text-white">
           <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Візуалізація даних</h5>
@@ -494,19 +513,5 @@
   <script src="js/payments.js"></script>
   <script src="js/analytics.js"></script>
   <script src="js/reports.js"></script>
-  
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('searchStudent').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          navigateSearch(1); 
-        } else if (e.key === 'Enter' && e.shiftKey) {
-          e.preventDefault();
-          navigateSearch(-1); 
-        }
-      });
-    });
-  </script>
 </body>
 </html>
