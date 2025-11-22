@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const MONTHLY_RATE = 500; // 500 грн за місяць
 
 app.use(cors());
 app.use(express.json());
@@ -53,12 +54,10 @@ app.get('/api/students', async (req, res) => {
       params.push(faculty);
     }
 
-    // Підрахунок загальної кількості
     const countQuery = `SELECT COUNT(*) FROM students ${whereClause}`;
     const countResult = await db.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Отримання даних з пагінацією
     params.push(limit, offset);
     const query = `
       SELECT s.*, 
@@ -136,12 +135,10 @@ app.post('/api/students', async (req, res) => {
   try {
     const { surname, name, patronymic, course, faculty, phone, passport } = req.body;
     
-    // Валідація
     if (!surname || !name || !course || !faculty) {
       return res.status(400).json({ error: 'Обов\'язкові поля: прізвище, ім\'я, курс, факультет' });
     }
 
-    // Перевірка унікальності паспорта
     if (passport) {
       const existingPassport = await db.query(
         'SELECT id FROM students WHERE passport = $1',
@@ -168,7 +165,6 @@ app.put('/api/students/:id', async (req, res) => {
     const { id } = req.params;
     const { surname, name, patronymic, course, faculty, phone, passport } = req.body;
     
-    // Перевірка унікальності паспорта (крім поточного студента)
     if (passport) {
       const existingPassport = await db.query(
         'SELECT id FROM students WHERE passport = $1 AND id != $2',
@@ -197,7 +193,6 @@ app.delete('/api/students/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Перевірка чи студент заселений
     const accommodation = await db.query(
       "SELECT id FROM accommodation WHERE student_id = $1 AND status = 'active'",
       [id]
@@ -220,7 +215,6 @@ app.delete('/api/students/:id', async (req, res) => {
   }
 });
 
-// Отримання студентів які не заселені
 app.get('/api/students/available', async (req, res) => {
   try {
     const query = `
@@ -248,7 +242,7 @@ app.get('/api/rooms', async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;
     const floor = req.query.floor || '';
-    const status = req.query.status || ''; // available, occupied, full
+    const status = req.query.status || '';
 
     let whereClause = 'WHERE 1=1';
     const params = [];
@@ -266,12 +260,10 @@ app.get('/api/rooms', async (req, res) => {
       whereClause += ` AND occupied_beds >= total_beds`;
     }
 
-    // Підрахунок загальної кількості
     const countQuery = `SELECT COUNT(*) FROM rooms ${whereClause}`;
     const countResult = await db.query(countQuery, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Отримання даних
     params.push(limit, offset);
     const query = `
       SELECT * FROM rooms 
@@ -312,7 +304,6 @@ app.post('/api/rooms', async (req, res) => {
   try {
     const { room_number, floor, block, total_beds } = req.body;
     
-    // Перевірка унікальності номера кімнати
     const existing = await db.query(
       'SELECT id FROM rooms WHERE room_number = $1',
       [room_number]
@@ -338,7 +329,6 @@ app.put('/api/rooms/:id', async (req, res) => {
     const { id } = req.params;
     const { room_number, floor, block, total_beds } = req.body;
     
-    // Перевірка чи нове total_beds >= occupied_beds
     const room = await db.query('SELECT occupied_beds FROM rooms WHERE id = $1', [id]);
     if (room.rows.length === 0) {
       return res.status(404).json({ error: 'Room not found' });
@@ -350,7 +340,6 @@ app.put('/api/rooms/:id', async (req, res) => {
       });
     }
 
-    // Перевірка унікальності номера (крім поточної кімнати)
     const existing = await db.query(
       'SELECT id FROM rooms WHERE room_number = $1 AND id != $2',
       [room_number, id]
@@ -376,7 +365,6 @@ app.delete('/api/rooms/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Перевірка чи є заселені студенти
     const occupied = await db.query('SELECT occupied_beds FROM rooms WHERE id = $1', [id]);
     if (occupied.rows.length === 0) {
       return res.status(404).json({ error: 'Room not found' });
@@ -464,7 +452,6 @@ app.post('/api/accommodation', async (req, res) => {
   try {
     const { student_id, room_id, date_in } = req.body;
 
-    // Перевірка чи студент вже заселений
     const activeCheck = await db.query(
       "SELECT a.id, r.room_number FROM accommodation a JOIN rooms r ON a.room_id = r.id WHERE a.student_id = $1 AND a.status = 'active'",
       [student_id]
@@ -477,7 +464,6 @@ app.post('/api/accommodation', async (req, res) => {
       });
     }
     
-    // Перевірка наявності вільних місць
     const room = await db.query('SELECT * FROM rooms WHERE id = $1', [room_id]);
     if (room.rows.length === 0) {
       await db.query('ROLLBACK');
@@ -491,13 +477,11 @@ app.post('/api/accommodation', async (req, res) => {
       });
     }
 
-    // Заселення
     const result = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [student_id, room_id, date_in || new Date(), 'active']
     );
 
-    // Оновлення лічильника зайнятих місць
     await db.query(
       'UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1',
       [room_id]
@@ -512,7 +496,6 @@ app.post('/api/accommodation', async (req, res) => {
   }
 });
 
-// ПЕРЕСЕЛЕННЯ студента
 app.post('/api/accommodation/:id/transfer', async (req, res) => {
   const client = await db.query('BEGIN');
   
@@ -520,7 +503,6 @@ app.post('/api/accommodation/:id/transfer', async (req, res) => {
     const { id } = req.params;
     const { new_room_id, transfer_date } = req.body;
 
-    // Отримання поточного заселення
     const currentAccommodation = await db.query(
       'SELECT * FROM accommodation WHERE id = $1 AND status = $2',
       [id, 'active']
@@ -534,13 +516,11 @@ app.post('/api/accommodation/:id/transfer', async (req, res) => {
     const oldRoomId = currentAccommodation.rows[0].room_id;
     const studentId = currentAccommodation.rows[0].student_id;
 
-    // Перевірка що нова кімната не та сама
     if (oldRoomId === new_room_id) {
       await db.query('ROLLBACK');
       return res.status(400).json({ error: 'Студент вже в цій кімнаті' });
     }
 
-    // Перевірка наявності місця в новій кімнаті
     const newRoom = await db.query('SELECT * FROM rooms WHERE id = $1', [new_room_id]);
     if (newRoom.rows.length === 0) {
       await db.query('ROLLBACK');
@@ -556,19 +536,16 @@ app.post('/api/accommodation/:id/transfer', async (req, res) => {
 
     const dateTransfer = transfer_date || new Date();
 
-    // Закриття старого заселення
     await db.query(
       "UPDATE accommodation SET date_out = $1, status = 'transferred' WHERE id = $2",
       [dateTransfer, id]
     );
 
-    // Створення нового заселення
     const newAccommodation = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [studentId, new_room_id, dateTransfer, 'active']
     );
 
-    // Оновлення лічильників
     await db.query('UPDATE rooms SET occupied_beds = occupied_beds - 1 WHERE id = $1', [oldRoomId]);
     await db.query('UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1', [new_room_id]);
 
@@ -584,7 +561,6 @@ app.post('/api/accommodation/:id/transfer', async (req, res) => {
   }
 });
 
-// Виселення
 app.put('/api/accommodation/:id/checkout', async (req, res) => {
   const client = await db.query('BEGIN');
   
@@ -629,7 +605,7 @@ app.put('/api/accommodation/:id/checkout', async (req, res) => {
 });
 
 // ============================================
-// PAYMENTS - Управління оплатами з періодами
+// PAYMENTS - Управління оплатами з ФІКСОВАНОЮ ЦІНОЮ
 // ============================================
 
 app.get('/api/payments', async (req, res) => {
@@ -712,7 +688,6 @@ app.get('/api/payments/debtors', async (req, res) => {
   }
 });
 
-// Додавання оплати з підтримкою періоду
 app.post('/api/payments', async (req, res) => {
   try {
     const { student_id, month_from, month_to, year, amount, payment_date, status } = req.body;
@@ -723,9 +698,30 @@ app.post('/api/payments', async (req, res) => {
 
     const monthTo = month_to || month_from;
 
-    // Перевірка чи такий період вже не оплачено
+    if (monthTo < month_from) {
+      return res.status(400).json({ error: 'Кінцевий місяць не може бути раніше початкового' });
+    }
+
+    if (month_from < 1 || month_from > 12 || monthTo < 1 || monthTo > 12) {
+      return res.status(400).json({ error: 'Місяці повинні бути від 1 до 12' });
+    }
+
+    const monthCount = monthTo - month_from + 1;
+    const expectedAmount = monthCount * MONTHLY_RATE;
+
+    if (Math.abs(amount - expectedAmount) > 1) {
+      return res.status(400).json({ 
+        error: `Неправильна сума. За ${monthCount} місяць(ів) має бути ${expectedAmount} грн (${monthCount} × ${MONTHLY_RATE} грн)` 
+      });
+    }
+
+    const studentCheck = await db.query('SELECT id FROM students WHERE id = $1', [student_id]);
+    if (studentCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Студента не знайдено' });
+    }
+
     const existing = await db.query(`
-      SELECT id FROM payments 
+      SELECT id, month_from, month_to FROM payments 
       WHERE student_id = $1 
         AND year = $2 
         AND (
@@ -736,15 +732,18 @@ app.post('/api/payments', async (req, res) => {
     `, [student_id, year, month_from, monthTo]);
 
     if (existing.rows.length > 0) {
+      const existingPeriod = existing.rows[0];
+      const months = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 
+                      'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
       return res.status(400).json({ 
-        error: 'Для цього періоду вже існує запис про оплату' 
+        error: `Цей період перекривається з існуючою оплатою: ${months[existingPeriod.month_from-1]} - ${months[existingPeriod.month_to-1]} ${year}` 
       });
     }
 
     const result = await db.query(
       `INSERT INTO payments (student_id, month_from, month_to, year, amount, payment_date, status, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
-      [student_id, month_from, monthTo, year, amount, payment_date, status || 'unpaid']
+      [student_id, month_from, monthTo, year, expectedAmount, payment_date, status || 'unpaid']
     );
     
     res.status(201).json(result.rows[0]);

@@ -2,6 +2,7 @@ let paymentsData = [];
 let currentPaymentsPage = 1;
 let totalPaymentsPages = 1;
 const paymentsPerPage = 50;
+const MONTHLY_RATE = 500; // 500 грн за місяць
 
 async function loadPayments(page = 1, status = '', year = '') {
   showLoading();
@@ -47,10 +48,12 @@ function displayPayments(payments) {
     
     // Формування періоду
     let periodText = '';
+    const monthCount = payment.month_to - payment.month_from + 1;
+    
     if (payment.month_from === payment.month_to) {
       periodText = months[payment.month_from - 1];
     } else {
-      periodText = `${months[payment.month_from - 1]} - ${months[payment.month_to - 1]}`;
+      periodText = `${months[payment.month_from - 1]} - ${months[payment.month_to - 1]} <small class="text-muted">(${monthCount} міс.)</small>`;
     }
     
     return `
@@ -114,26 +117,27 @@ async function openPaymentModal() {
               
               <div class="alert alert-info">
                 <i class="bi bi-info-circle"></i> 
-                <strong>Підтримка періодів:</strong> Ви можете вказати оплату за один місяць або за період (наприклад, з січня по березень)
+                <strong>Тариф:</strong> 500 грн за місяць проживання<br>
+                <strong>Увага:</strong> Можна вносити часткову оплату (будь-яку суму)
               </div>
               
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label class="form-label">Місяць (початок) *</label>
-                  <select class="form-select" id="payment_month_from" required onchange="updateMonthTo()">
+                  <select class="form-select" id="payment_month_from" required onchange="updatePaymentAmount()">
                     ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => 
                       `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'][m-1]}</option>`
                     ).join('')}
                   </select>
                 </div>
                 <div class="col-md-6 mb-3">
-                  <label class="form-label">Місяць (кінець)</label>
-                  <select class="form-select" id="payment_month_to">
+                  <label class="form-label">Місяць (кінець) *</label>
+                  <select class="form-select" id="payment_month_to" required onchange="updatePaymentAmount()">
                     ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => 
                       `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'][m-1]}</option>`
                     ).join('')}
                   </select>
-                  <small class="text-muted">Якщо оплата за один місяць - залиште той самий</small>
+                  <small class="text-muted">Період за який вноситься оплата</small>
                 </div>
               </div>
               
@@ -143,9 +147,13 @@ async function openPaymentModal() {
               </div>
               
               <div class="mb-3">
-                <label class="form-label">Сума (грн) *</label>
-                <input type="number" class="form-control" id="payment_amount" value="1500.00" step="0.01" min="0.01" required>
-                <small class="text-muted">Рекомендована місячна оплата: 1500 грн</small>
+                <label class="form-label">Сума до сплати (грн) *</label>
+                <input type="number" class="form-control" id="payment_amount" value="500.00" step="0.01" min="0.01" required>
+                <div id="amount_info" class="mt-2">
+                  <span class="badge bg-info">Рекомендовано: 500 грн (1 місяць)</span>
+                  <span class="badge bg-warning ms-2">Можна внести будь-яку суму</span>
+                </div>
+                <small class="text-muted">Ви можете внести повну або часткову оплату</small>
               </div>
               
               <div class="mb-3">
@@ -172,27 +180,45 @@ async function openPaymentModal() {
         </div>
       </div>
     </div>
-    
-    <script>
-      function updateMonthTo() {
-        const monthFrom = parseInt(document.getElementById('payment_month_from').value);
-        const monthTo = document.getElementById('payment_month_to');
-        if (parseInt(monthTo.value) < monthFrom) {
-          monthTo.value = monthFrom;
-        }
-      }
-      
-      function togglePaymentDate() {
-        const status = document.getElementById('payment_status').value;
-        const dateInput = document.getElementById('payment_date');
-        if (status === 'paid' && !dateInput.value) {
-          dateInput.value = new Date().toISOString().split('T')[0];
-        }
-      }
-    </script>
   `;
   
   new bootstrap.Modal(document.getElementById('paymentModal')).show();
+}
+
+// Підказка про рекомендовану суму (не блокуємо ручне введення)
+function updatePaymentAmount() {
+  const monthFrom = parseInt(document.getElementById('payment_month_from').value);
+  const monthTo = parseInt(document.getElementById('payment_month_to').value);
+  
+  if (monthTo < monthFrom) {
+    document.getElementById('payment_month_to').value = monthFrom;
+    updatePaymentAmount();
+    return;
+  }
+  
+  const monthCount = monthTo - monthFrom + 1;
+  const recommendedAmount = monthCount * MONTHLY_RATE;
+  
+  const amountInfo = document.getElementById('amount_info');
+  if (monthCount === 1) {
+    amountInfo.innerHTML = `
+      <span class="badge bg-info">Рекомендовано: ${recommendedAmount} грн (1 місяць)</span>
+      <span class="badge bg-warning ms-2">Можна внести будь-яку суму</span>
+    `;
+  } else {
+    amountInfo.innerHTML = `
+      <span class="badge bg-info">Рекомендовано: ${recommendedAmount} грн (${monthCount} місяців × ${MONTHLY_RATE})</span>
+      <span class="badge bg-warning ms-2">Можна внести будь-яку суму</span>
+    `;
+  }
+}
+
+function togglePaymentDate() {
+  const status = document.getElementById('payment_status').value;
+  const dateInput = document.getElementById('payment_date');
+  if (status === 'paid' && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
 }
 
 async function savePayment() {
@@ -205,9 +231,15 @@ async function savePayment() {
   
   const monthFrom = parseInt(document.getElementById('payment_month_from').value);
   const monthTo = parseInt(document.getElementById('payment_month_to').value);
+  const amount = parseFloat(document.getElementById('payment_amount').value);
   
   if (monthTo < monthFrom) {
     showAlert('Кінцевий місяць не може бути раніше початкового', 'warning');
+    return;
+  }
+  
+  if (amount <= 0) {
+    showAlert('Сума повинна бути більше 0', 'warning');
     return;
   }
   
@@ -216,7 +248,7 @@ async function savePayment() {
     month_from: monthFrom,
     month_to: monthTo,
     year: parseInt(document.getElementById('payment_year').value),
-    amount: parseFloat(document.getElementById('payment_amount').value),
+    amount: amount,
     payment_date: document.getElementById('payment_date').value || null,
     status: document.getElementById('payment_status').value
   };
@@ -301,11 +333,9 @@ async function loadDebtors() {
     const response = await fetch(`${API_URL}/payments/debtors`);
     const debtors = await response.json();
     
-    // Показуємо без пагінації, тільки боржників
     paymentsData = debtors;
     displayPayments(debtors);
     
-    // Приховуємо пагінацію
     const paginationContainer = document.getElementById('payments-pagination');
     if (paginationContainer) {
       paginationContainer.innerHTML = '';
