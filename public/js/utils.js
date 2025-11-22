@@ -7,6 +7,11 @@ let currentSort = {
   payments: { field: 'id', order: 'ASC' }
 };
 
+// Глобальні змінні для графіків
+let occupancyChart = null;
+let facultyChart = null;
+let paymentsChart = null;
+
 function showLoading() {
   document.getElementById('loadingSpinner').classList.remove('d-none');
 }
@@ -44,6 +49,7 @@ function showSection(sectionName) {
   switch(sectionName) {
     case 'dashboard':
       loadStatistics();
+      loadDashboardCharts(); // Додаємо завантаження графіків
       break;
     case 'students':
       loadStudents(null, null, 1);
@@ -63,7 +69,8 @@ function showSection(sectionName) {
       loadStudentSelector();
       break;
     case 'reports':
-      loadAllCharts();
+      // Можна закоментувати, якщо графіки перенесені на головну
+      // loadAllCharts();
       break;
   }
 }
@@ -96,21 +103,6 @@ async function loadStatistics() {
         </div>
       </div>
       <div class="col-md-3">
-        <div class="card stat-card border-info">
-          <div class="card-body">
-            <h6 class="text-muted">Заповненість</h6>
-            <h2 class="text-info"><i class="bi bi-pie-chart"></i> ${stats.occupiedBeds}/${stats.totalBeds}</h2>
-            <div class="progress mt-2" style="height: 20px;">
-              <div class="progress-bar bg-info" role="progressbar" 
-                   style="width: ${occupancyPercent}%" 
-                   aria-valuenow="${occupancyPercent}" aria-valuemin="0" aria-valuemax="100">
-                ${occupancyPercent}%
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-3">
         <div class="card stat-card border-warning">
           <div class="card-body">
             <h6 class="text-muted">Боржників</h6>
@@ -127,6 +119,278 @@ async function loadStatistics() {
   }
   hideLoading();
 }
+
+// ==================== ГРАФІКИ ДЛЯ ГОЛОВНОЇ ====================
+
+// Завантаження кругової діаграми заповненості
+async function loadOccupancyChart() {
+  try {
+    const statsResponse = await fetch(`${API_URL}/statistics`);
+    const stats = await statsResponse.json();
+    
+    const ctx = document.getElementById('occupancyChart');
+    if (!ctx) return;
+
+    // Знищити попередню діаграму
+    if (occupancyChart) {
+      occupancyChart.destroy();
+    }
+
+    const occupied = stats.occupiedBeds;
+    const free = stats.totalBeds - stats.occupiedBeds;
+    const occupancyRate = stats.totalBeds > 0 ? (occupied / stats.totalBeds * 100) : 0;
+
+    occupancyChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Зайнято', 'Вільно'],
+        datasets: [{
+          data: [occupied, free],
+          backgroundColor: [
+            '#ff6384',  // червоний для зайнятих
+            '#36a2eb'   // синій для вільних
+          ],
+          borderWidth: 2,
+          borderColor: '#fff',
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: {
+                size: 12,
+                family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+              },
+              padding: 15
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.raw || 0;
+                const total = occupied + free;
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${label}: ${value} місць (${percentage}%)`;
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: `Загальна заповненість: ${occupancyRate.toFixed(1)}%`,
+            font: {
+              size: 14,
+              weight: 'bold'
+            },
+            padding: 10
+          }
+        },
+        cutout: '55%',
+        animation: {
+          animateScale: true,
+          animateRotate: true
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error loading occupancy chart:', error);
+  }
+}
+
+// Завантаження діаграми факультетів для головної
+async function loadDashboardFacultyChart() {
+  try {
+    const response = await fetch(`${API_URL}/reports/charts/faculty-stats`);
+    const data = await response.json();
+
+    const ctx = document.getElementById('facultyChart');
+    if (!ctx) return;
+
+    // Знищити попередню діаграму
+    if (facultyChart) {
+      facultyChart.destroy();
+    }
+
+    facultyChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.map(d => d.faculty),
+        datasets: [
+          {
+            label: 'Всього студентів',
+            data: data.map(d => parseInt(d.total_students)),
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Заселено',
+            data: data.map(d => parseInt(d.accommodated_students)),
+            backgroundColor: 'rgba(75, 192, 192, 0.7)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0
+            },
+            title: {
+              display: true,
+              text: 'Кількість студентів'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Факультети'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: {
+                size: 11
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              afterBody: function(context) {
+                const datasetIndex = context[0].datasetIndex;
+                const dataIndex = context[0].dataIndex;
+                if (datasetIndex === 0) {
+                  const total = context[0].raw;
+                  const accommodated = facultyChart.data.datasets[1].data[dataIndex];
+                  const percentage = total > 0 ? ((accommodated / total) * 100).toFixed(1) : 0;
+                  return `Заселено: ${percentage}%`;
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error loading faculty chart:', error);
+  }
+}
+
+// Завантаження діаграми оплат для головної
+async function loadDashboardPaymentsChart() {
+  try {
+    const response = await fetch(`${API_URL}/reports/charts/payments-by-month`);
+    const data = await response.json();
+
+    const monthNames = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
+    const ctx = document.getElementById('paymentsChart');
+    if (!ctx) return;
+
+    // Знищити попередню діаграму
+    if (paymentsChart) {
+      paymentsChart.destroy();
+    }
+
+    paymentsChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map(d => monthNames[d.month - 1]),
+        datasets: [
+          {
+            label: 'Оплачено (грн)',
+            data: data.map(d => parseFloat(d.paid_amount)),
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          },
+          {
+            label: 'Не оплачено (грн)',
+            data: data.map(d => parseFloat(d.unpaid_amount)),
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Сума (грн)'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Місяці'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: {
+                size: 11
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `${context.dataset.label}: ${parseFloat(context.raw).toFixed(2)} грн`;
+              }
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error loading payments chart:', error);
+  }
+}
+
+// Завантаження всіх графіків для головної
+async function loadDashboardCharts() {
+  showLoading();
+  try {
+    await Promise.all([
+      loadOccupancyChart(),
+      loadDashboardFacultyChart(),
+      loadDashboardPaymentsChart()
+    ]);
+  } catch (error) {
+    console.error('Error loading dashboard charts:', error);
+  }
+  hideLoading();
+}
+
+// ==================== ПАГІНАЦІЯ ====================
 
 // Функція для відображення пагінації
 function displayPagination(pagination, containerId) {
@@ -255,6 +519,8 @@ function changePageAccommodation(page) {
 function changePagePayments(page) {
   loadPayments(page);
 }
+
+// ==================== ІНІЦІАЛІЗАЦІЯ ====================
 
 document.addEventListener('DOMContentLoaded', () => {
   loadStatistics();

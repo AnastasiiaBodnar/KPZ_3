@@ -122,11 +122,54 @@
 
   <div class="container-fluid mt-4">
 
-    <!-- Dashboard -->
-    <div id="dashboard-section" class="content-section">
-      <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Статистика</h2>
-      <div class="row" id="statistics"></div>
+  <!-- Dashboard -->
+  <div id="dashboard-section" class="content-section">
+    <h2 class="mb-4"><i class="bi bi-speedometer2"></i> Статистика</h2>
+    <div class="row" id="statistics"></div>
+    
+    <div class="row mt-4">
+      <div class="col-md-6 mb-4">
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Заповненість гуртожитку</h5>
+          </div>
+          <div class="card-body">
+            <div style="height: 300px; position: relative;">
+              <canvas id="occupancyChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 mb-4">
+        <div class="card">
+          <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Статистика по факультетах</h5>
+          </div>
+          <div class="card-body">
+            <div style="height: 300px; position: relative;">
+              <canvas id="facultyChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Додаткова статистика -->
+    <div class="row mt-2">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-graph-up"></i> Оплати по місяцях</h5>
+          </div>
+          <div class="card-body">
+            <div style="height: 250px; position: relative;">
+              <canvas id="paymentsChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
     <!-- Students -->
     <div id="students-section" class="content-section d-none">
@@ -439,7 +482,7 @@
 
     <!-- Reports -->
     <div id="reports-section" class="content-section d-none">
-      <h2 class="mb-4"><i class="bi bi-file-earmark-bar-graph"></i> Звіти та діаграми</h2>
+      <h2 class="mb-4"><i class="bi bi-file-earmark-bar-graph"></i> Звіти</h2>
 
       <div class="card mb-4">
         <div class="card-header bg-success text-white">
@@ -469,28 +512,6 @@
                     <i class="bi bi-download"></i> Завантажити PDF
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Візуалізація даних</h5>
-        </div>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <h6 class="text-center">Статистика по факультетах</h6>
-              <div style="height: 250px;">
-                <canvas id="facultyChart"></canvas>
-              </div>
-            </div>
-            <div class="col-md-6 mb-3">
-              <h6 class="text-center">Оплати по місяцях</h6>
-              <div style="height: 250px;">
-                <canvas id="paymentsChart"></canvas>
               </div>
             </div>
           </div>
