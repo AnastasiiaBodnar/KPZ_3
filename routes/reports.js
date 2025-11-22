@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const PDFDocument = require('pdfkit');
-const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 
 router.get('/students/excel', async (req, res) => {
   try {
@@ -30,37 +30,55 @@ router.get('/students/excel', async (req, res) => {
       ORDER BY s.surname, s.name
     `);
 
-    const students = result.rows;
-    const workbook = xlsx.utils.book_new();
-    const worksheetData = [
-      ['ID', 'Прізвище', 'Ім\'я', 'По батькові', 'Курс', 'Факультет', 'Телефон', 'Паспорт', 'Кімната', 'Борг (грн)']
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Студенти');
+    
+    // Заголовки
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Прізвище', key: 'surname', width: 15 },
+      { header: 'Ім\'я', key: 'name', width: 15 },
+      { header: 'По батькові', key: 'patronymic', width: 15 },
+      { header: 'Курс', key: 'course', width: 10 },
+      { header: 'Факультет', key: 'faculty', width: 15 },
+      { header: 'Телефон', key: 'phone', width: 15 },
+      { header: 'Паспорт', key: 'passport', width: 15 },
+      { header: 'Кімната', key: 'room_number', width: 12 },
+      { header: 'Борг (грн)', key: 'total_debt', width: 12 }
     ];
 
-    students.forEach(s => {
-      worksheetData.push([
-        s.id,
-        s.surname,
-        s.name,
-        s.patronymic || '',
-        s.course,
-        s.faculty,
-        s.phone || '',
-        s.passport || '',
-        s.room_number || 'Не заселений',
-        parseFloat(s.total_debt).toFixed(2)
-      ]);
+    // Додаємо дані
+    result.rows.forEach(student => {
+      worksheet.addRow({
+        id: student.id,
+        surname: student.surname,
+        name: student.name,
+        patronymic: student.patronymic || '',
+        course: student.course,
+        faculty: student.faculty,
+        phone: student.phone || '',
+        passport: student.passport || '',
+        room_number: student.room_number || 'Не заселений',
+        total_debt: parseFloat(student.total_debt).toFixed(2)
+      });
     });
 
-    const worksheet = xlsx.utils.aoa_to_sheet(worksheetData);
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Студенти');
-    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    // Стилі для заголовків
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6E6FA' }
+    };
 
     res.setHeader('Content-Disposition', 'attachment; filename=students.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buffer);
+    
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error generating Excel report' });
+    res.status(500).json({ error: 'Помилка генерації Excel звіту' });
   }
 });
 
@@ -126,7 +144,7 @@ router.get('/debtors/pdf', async (req, res) => {
     doc.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error generating PDF report' });
+    res.status(500).json({ error: 'Помилка генерації PDF звіту' });
   }
 });
 
@@ -148,7 +166,7 @@ router.get('/charts/faculty-stats', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: 'Помилка бази даних' });
   }
 });
 
@@ -169,7 +187,7 @@ router.get('/charts/payments-by-month', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: 'Помилка бази даних' });
   }
 });
 

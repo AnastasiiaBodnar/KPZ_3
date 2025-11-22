@@ -1,10 +1,25 @@
-let facultyChart = null;
-let paymentsChart = null;
-
 function downloadStudentsExcel() {
-  window.open(`${API_URL}/reports/students/excel`, '_blank');
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = `${API_URL}/reports/students/excel`;
+  document.body.appendChild(iframe);
+
+  iframe.onload = function() {
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  };
 }
 
 function downloadDebtorsPdf() {
-  window.open(`${API_URL}/reports/debtors/pdf`, '_blank');
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.src = `${API_URL}/reports/debtors/pdf`;
+  document.body.appendChild(iframe);
+  
+  iframe.onload = function() {
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  };
 }
