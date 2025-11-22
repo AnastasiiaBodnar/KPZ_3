@@ -33,7 +33,6 @@ router.get('/students/excel', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Студенти');
     
-    // Заголовки
     worksheet.columns = [
       { header: 'ID', key: 'id', width: 10 },
       { header: 'Прізвище', key: 'surname', width: 15 },
@@ -47,7 +46,6 @@ router.get('/students/excel', async (req, res) => {
       { header: 'Борг (грн)', key: 'total_debt', width: 12 }
     ];
 
-    // Додаємо дані
     result.rows.forEach(student => {
       worksheet.addRow({
         id: student.id,
@@ -63,7 +61,6 @@ router.get('/students/excel', async (req, res) => {
       });
     });
 
-    // Стилі для заголовків
     worksheet.getRow(1).font = { bold: true };
     worksheet.getRow(1).fill = {
       type: 'pattern',
@@ -109,6 +106,15 @@ router.get('/debtors/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=debtors_report.pdf');
 
     doc.pipe(res);
+    
+    try {
+      doc.registerFont('DejaVu', 'node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf');
+      doc.font('DejaVu');
+    } catch (fontErr) {
+      console.warn('DejaVu font not found, trying alternative...');
+      doc.font('Courier');
+    }
+    
     doc.fontSize(20).text('Звіт по боржниках', { align: 'center' });
     doc.fontSize(12).text(`Дата: ${new Date().toLocaleDateString('uk-UA')}`, { align: 'center' });
     doc.moveDown(2);
@@ -116,30 +122,42 @@ router.get('/debtors/pdf', async (req, res) => {
     doc.fontSize(10);
     let y = doc.y;
 
-    doc.text('#', 50, y, { width: 30, continued: true })
-       .text('Студент', 80, y, { width: 150, continued: true })
-       .text('Факультет', 230, y, { width: 60, continued: true })
-       .text('Курс', 290, y, { width: 40, continued: true })
-       .text('Телефон', 330, y, { width: 100, continued: true })
-       .text('Борг (грн)', 430, y, { width: 100 });
+    doc.text('#', 50, y, { width: 30, continued: false });
+    doc.text('Студент', 80, y, { width: 150, continued: false });
+    doc.text('Факультет', 230, y, { width: 60, continued: false });
+    doc.text('Курс', 290, y, { width: 40, continued: false });
+    doc.text('Телефон', 330, y, { width: 100, continued: false });
+    doc.text('Борг (грн)', 430, y, { width: 100, continued: false });
 
     y += 20;
     doc.moveTo(50, y).lineTo(550, y).stroke();
-    y += 5;
+    y += 10;
 
     debtors.forEach((debtor, index) => {
-      y += 20;
-      doc.text(index + 1, 50, y, { width: 30, continued: true })
-         .text(debtor.student_name, 80, y, { width: 150, continued: true })
-         .text(debtor.faculty, 230, y, { width: 60, continued: true })
-         .text(debtor.course, 290, y, { width: 40, continued: true })
-         .text(debtor.phone || '-', 330, y, { width: 100, continued: true })
-         .text(parseFloat(debtor.total_debt).toFixed(2), 430, y, { width: 100 });
+      if (y > 700) {
+        doc.addPage();
+        y = 50;
+      }
+      
+      doc.text(String(index + 1), 50, y, { width: 30, continued: false });
+      doc.text(debtor.student_name, 80, y, { width: 150, continued: false });
+      doc.text(debtor.faculty, 230, y, { width: 60, continued: false });
+      doc.text(String(debtor.course), 290, y, { width: 40, continued: false });
+      doc.text(debtor.phone || '-', 330, y, { width: 100, continued: false });
+      doc.text(parseFloat(debtor.total_debt).toFixed(2), 430, y, { width: 100, continued: false });
+      
+      y += 25;
     });
 
-    y += 40;
+    y += 20;
+    doc.moveTo(50, y).lineTo(550, y).stroke();
+    y += 15;
+    
     const totalDebt = debtors.reduce((sum, d) => sum + parseFloat(d.total_debt), 0);
-    doc.fontSize(12).text(`Загальний борг: ${totalDebt.toFixed(2)} грн`, 50, y);
+    doc.fontSize(12).font('DejaVu').text(`Загальний борг: ${totalDebt.toFixed(2)} грн`, 50, y, { 
+      continued: false,
+      width: 500 
+    });
 
     doc.end();
   } catch (err) {
@@ -170,25 +188,5 @@ router.get('/charts/faculty-stats', async (req, res) => {
   }
 });
 
-router.get('/charts/payments-by-month', async (req, res) => {
-  try {
-    const result = await db.query(`
-      SELECT 
-        month_from as month,
-        year,
-        COUNT(*) as total_payments,
-        SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as paid_amount,
-        SUM(CASE WHEN status = 'unpaid' THEN amount ELSE 0 END) as unpaid_amount
-      FROM payments
-      WHERE year = EXTRACT(YEAR FROM CURRENT_DATE)
-      GROUP BY year, month_from
-      ORDER BY year, month_from
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Помилка бази даних' });
-  }
-});
 
 module.exports = router;
