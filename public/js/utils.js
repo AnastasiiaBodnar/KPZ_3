@@ -57,6 +57,9 @@ function showSection(sectionName) {
       loadFloorsAnalytics();
       loadStudentSelector();
       break;
+      case 'reports':
+        loadAllCharts();
+      break;
   }
 }
 
