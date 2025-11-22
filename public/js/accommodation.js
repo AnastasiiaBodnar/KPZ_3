@@ -109,9 +109,14 @@ async function openAccommodationModal() {
     return;
   }
   
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+  const MONTHLY_RATE = 500;
+  
   document.getElementById('modals-container').innerHTML = `
     <div class="modal fade" id="accommodationModal" tabindex="-1">
-      <div class="modal-dialog">
+      <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header bg-success text-white">
             <h5 class="modal-title">
@@ -121,6 +126,8 @@ async function openAccommodationModal() {
           </div>
           <div class="modal-body">
             <form id="accommodationForm">
+              <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-1-circle"></i> Інформація про заселення</h6>
+              
               <div class="mb-3">
                 <label class="form-label">Студент *</label>
                 <select class="form-select" id="student_id" required>
@@ -152,6 +159,62 @@ async function openAccommodationModal() {
                 <input type="date" class="form-control" id="date_in" 
                        value="${new Date().toISOString().split('T')[0]}" required>
               </div>
+              
+              <h6 class="border-bottom pb-2 mb-3 mt-4"><i class="bi bi-2-circle"></i> Створити нарахування за проживання</h6>
+              
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="create_payment" checked 
+                       onchange="togglePaymentFields()">
+                <label class="form-check-label" for="create_payment">
+                  <strong>Одразу створити нарахування за проживання</strong>
+                  <br>
+                  <small class="text-muted">Рекомендується для автоматичного обліку оплат</small>
+                </label>
+              </div>
+              
+              <div id="payment_fields">
+                <div class="alert alert-info">
+                  <i class="bi bi-info-circle"></i> 
+                  <strong>Тариф:</strong> ${MONTHLY_RATE} грн за місяць проживання
+                </div>
+                
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label">Місяць (початок) *</label>
+                    <select class="form-select" id="payment_month_from" onchange="updateAccommodationAmount()">
+                      ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => 
+                        `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'][m-1]}</option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label">Місяць (кінець) *</label>
+                    <select class="form-select" id="payment_month_to" onchange="updateAccommodationAmount()">
+                      ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m => 
+                        `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'][m-1]}</option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="mb-3">
+                  <label class="form-label">Рік *</label>
+                  <input type="number" class="form-control" id="payment_year" value="${currentYear}" min="2020" max="2100">
+                </div>
+                
+                <div class="mb-3">
+                  <div id="accommodation_amount_info" class="alert alert-success">
+                    <strong>📊 Сума до сплати:</strong> <span id="accommodation_calculated_amount">${MONTHLY_RATE} грн</span> (1 місяць)
+                  </div>
+                </div>
+                
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="mark_as_paid">
+                  <label class="form-check-label" for="mark_as_paid">
+                    Студент одразу оплатив (позначити як "оплачено")
+                  </label>
+                </div>
+              </div>
             </form>
           </div>
           <div class="modal-footer">
@@ -164,7 +227,32 @@ async function openAccommodationModal() {
       </div>
     </div>`;
   
-  new bootstrap.Modal(document.getElementById('accommodationModal')).show();
+  const modal = new bootstrap.Modal(document.getElementById('accommodationModal'));
+  modal.show();
+  
+  // Додаємо функції в глобальну область
+  window.togglePaymentFields = function() {
+    const checked = document.getElementById('create_payment').checked;
+    const fields = document.getElementById('payment_fields');
+    fields.style.display = checked ? 'block' : 'none';
+  };
+  
+  window.updateAccommodationAmount = function() {
+    const monthFrom = parseInt(document.getElementById('payment_month_from').value);
+    const monthTo = parseInt(document.getElementById('payment_month_to').value);
+    
+    if (monthTo < monthFrom) {
+      document.getElementById('payment_month_to').value = monthFrom;
+      window.updateAccommodationAmount();
+      return;
+    }
+    
+    const monthCount = monthTo - monthFrom + 1;
+    const totalAmount = monthCount * MONTHLY_RATE;
+    
+    const amountInfo = document.getElementById('accommodation_calculated_amount');
+    amountInfo.textContent = totalAmount + ' грн (' + monthCount + ' ' + (monthCount === 1 ? 'місяць' : monthCount < 5 ? 'місяці' : 'місяців') + ')';
+  };
 }
 
 async function saveAccommodation() {
@@ -178,8 +266,27 @@ async function saveAccommodation() {
   const formData = {
     student_id: parseInt(document.getElementById('student_id').value),
     room_id: parseInt(document.getElementById('room_id').value),
-    date_in: document.getElementById('date_in').value
+    date_in: document.getElementById('date_in').value,
+    create_payment: document.getElementById('create_payment').checked
   };
+  
+  // Якщо створюємо нарахування
+  if (formData.create_payment) {
+    const monthFrom = parseInt(document.getElementById('payment_month_from').value);
+    const monthTo = parseInt(document.getElementById('payment_month_to').value);
+    
+    if (monthTo < monthFrom) {
+      showAlert('Кінцевий місяць не може бути раніше початкового', 'warning');
+      return;
+    }
+    
+    formData.payment = {
+      month_from: monthFrom,
+      month_to: monthTo,
+      year: parseInt(document.getElementById('payment_year').value),
+      mark_as_paid: document.getElementById('mark_as_paid').checked
+    };
+  }
   
   try {
     const response = await fetch(`${API_URL}/accommodation`, {
@@ -191,7 +298,13 @@ async function saveAccommodation() {
     const data = await response.json();
     
     if (response.ok) {
-      showAlert('Студента заселено', 'success');
+      let message = 'Студента заселено';
+      if (formData.create_payment) {
+        message += formData.payment.mark_as_paid 
+          ? ' та оплату підтверджено' 
+          : ' та створено нарахування';
+      }
+      showAlert(message, 'success');
       bootstrap.Modal.getInstance(document.getElementById('accommodationModal')).hide();
       loadAccommodation(currentAccommodationPage);
       loadStatistics();
@@ -204,7 +317,7 @@ async function saveAccommodation() {
   }
 }
 
-// НОВА ФУНКЦІЯ: Переселення студента
+// ФУНКЦІЯ: Переселення студента
 async function openTransferModal(accommodationId) {
   const accommodation = accommodationData.find(a => a.id === accommodationId);
   

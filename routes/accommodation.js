@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
+const MONTHLY_RATE = 500; // 500 грн за місяць
+
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -60,12 +62,14 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ВИПРАВЛЕНИЙ POST /api/accommodation - заселення з можливістю створити нарахування
 router.post('/', async (req, res) => {
-  const client = await db.query('BEGIN');
-  
   try {
-    const { student_id, room_id, date_in } = req.body;
+    await db.query('BEGIN');
+    
+    const { student_id, room_id, date_in, create_payment, payment } = req.body;
 
+    // Перевірка чи студент вже заселений
     const activeCheck = await db.query(
       "SELECT a.id, r.room_number FROM accommodation a JOIN rooms r ON a.room_id = r.id WHERE a.student_id = $1 AND a.status = 'active'",
       [student_id]
@@ -78,42 +82,119 @@ router.post('/', async (req, res) => {
       });
     }
     
-    const room = await db.query('SELECT * FROM rooms WHERE id = $1', [room_id]);
+    // КРИТИЧНО: Отримуємо актуальний стан кімнати з блокуванням рядка
+    const room = await db.query(
+      'SELECT * FROM rooms WHERE id = $1 FOR UPDATE', 
+      [room_id]
+    );
+    
     if (room.rows.length === 0) {
       await db.query('ROLLBACK');
       return res.status(404).json({ error: 'Кімната не знайдена' });
     }
-    
-    if (room.rows[0].occupied_beds >= room.rows[0].total_beds) {
+
+    const currentRoom = room.rows[0];
+    const availableBeds = currentRoom.total_beds - currentRoom.occupied_beds;
+
+    console.log(`🔍 Кімната ${currentRoom.room_number}: всього=${currentRoom.total_beds}, зайнято=${currentRoom.occupied_beds}, вільно=${availableBeds}`);
+
+    // Перевірка чи є вільні місця
+    if (availableBeds <= 0) {
       await db.query('ROLLBACK');
       return res.status(400).json({ 
-        error: `В кімнаті ${room.rows[0].room_number} немає вільних місць` 
+        error: `В кімнаті ${currentRoom.room_number} немає вільних місць (зайнято ${currentRoom.occupied_beds} з ${currentRoom.total_beds})` 
       });
     }
 
-    const result = await db.query(
+    // Створюємо запис про заселення
+    const accommodationResult = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [student_id, room_id, date_in || new Date(), 'active']
     );
 
-    await db.query(
-      'UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1',
+    // Оновлюємо кількість зайнятих місць у кімнаті
+    const updateResult = await db.query(
+      'UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1 RETURNING *',
       [room_id]
     );
 
+    console.log(`✅ Оновлено кімнату: зайнято ${updateResult.rows[0].occupied_beds} з ${updateResult.rows[0].total_beds}`);
+
+    // Якщо потрібно створити нарахування
+    if (create_payment && payment) {
+      const { month_from, month_to, year, mark_as_paid } = payment;
+      
+      // Валідація
+      if (month_to < month_from) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ error: 'Кінцевий місяць не може бути раніше початкового' });
+      }
+
+      if (month_from < 1 || month_from > 12 || month_to < 1 || month_to > 12) {
+        await db.query('ROLLBACK');
+        return res.status(400).json({ error: 'Місяці повинні бути від 1 до 12' });
+      }
+
+      // Перевірка на дублікати періодів
+      const existing = await db.query(`
+        SELECT id, month_from, month_to FROM payments 
+        WHERE student_id = $1 
+          AND year = $2 
+          AND (
+            (month_from <= $3 AND month_to >= $3) OR
+            (month_from <= $4 AND month_to >= $4) OR
+            (month_from >= $3 AND month_to <= $4)
+          )
+      `, [student_id, year, month_from, month_to]);
+
+      if (existing.rows.length > 0) {
+        await db.query('ROLLBACK');
+        const existingPeriod = existing.rows[0];
+        const months = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 
+                        'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
+        return res.status(400).json({ 
+          error: `Цей період перекривається з існуючою оплатою: ${months[existingPeriod.month_from-1]} - ${months[existingPeriod.month_to-1]} ${year}` 
+        });
+      }
+
+      // Розраховуємо суму
+      const monthCount = month_to - month_from + 1;
+      const amount = monthCount * MONTHLY_RATE;
+      
+      // Створюємо нарахування
+      const paymentStatus = mark_as_paid ? 'paid' : 'unpaid';
+      const paymentDate = mark_as_paid ? (date_in || new Date()) : null;
+      
+      await db.query(
+        `INSERT INTO payments (student_id, month_from, month_to, year, amount, payment_date, status, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [student_id, month_from, month_to, year, amount, paymentDate, paymentStatus]
+      );
+    }
+
     await db.query('COMMIT');
-    res.status(201).json(result.rows[0]);
+    
+    res.status(201).json({
+      accommodation: accommodationResult.rows[0],
+      payment_created: create_payment ? true : false,
+      room_status: {
+        room_number: currentRoom.room_number,
+        occupied_beds: updateResult.rows[0].occupied_beds,
+        total_beds: updateResult.rows[0].total_beds,
+        available_beds: updateResult.rows[0].total_beds - updateResult.rows[0].occupied_beds
+      }
+    });
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error(err);
+    console.error('❌ Помилка заселення:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 router.post('/:id/transfer', async (req, res) => {
-  const client = await db.query('BEGIN');
-  
   try {
+    await db.query('BEGIN');
+    
     const { id } = req.params;
     const { new_room_id, transfer_date } = req.body;
 
@@ -135,31 +216,41 @@ router.post('/:id/transfer', async (req, res) => {
       return res.status(400).json({ error: 'Студент вже в цій кімнаті' });
     }
 
-    const newRoom = await db.query('SELECT * FROM rooms WHERE id = $1', [new_room_id]);
+    // Блокуємо нову кімнату для перевірки
+    const newRoom = await db.query(
+      'SELECT * FROM rooms WHERE id = $1 FOR UPDATE', 
+      [new_room_id]
+    );
+    
     if (newRoom.rows.length === 0) {
       await db.query('ROLLBACK');
       return res.status(404).json({ error: 'Нова кімната не знайдена' });
     }
 
-    if (newRoom.rows[0].occupied_beds >= newRoom.rows[0].total_beds) {
+    const availableBeds = newRoom.rows[0].total_beds - newRoom.rows[0].occupied_beds;
+
+    if (availableBeds <= 0) {
       await db.query('ROLLBACK');
       return res.status(400).json({ 
-        error: `В кімнаті ${newRoom.rows[0].room_number} немає вільних місць` 
+        error: `В кімнаті ${newRoom.rows[0].room_number} немає вільних місць (зайнято ${newRoom.rows[0].occupied_beds} з ${newRoom.rows[0].total_beds})` 
       });
     }
 
     const dateTransfer = transfer_date || new Date();
 
+    // Закриваємо старе заселення
     await db.query(
       "UPDATE accommodation SET date_out = $1, status = 'transferred' WHERE id = $2",
       [dateTransfer, id]
     );
 
+    // Створюємо нове заселення
     const newAccommodation = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [studentId, new_room_id, dateTransfer, 'active']
     );
 
+    // Оновлюємо обидві кімнати
     await db.query('UPDATE rooms SET occupied_beds = occupied_beds - 1 WHERE id = $1', [oldRoomId]);
     await db.query('UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1', [new_room_id]);
 
@@ -170,15 +261,15 @@ router.post('/:id/transfer', async (req, res) => {
     });
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error(err);
+    console.error('❌ Помилка переселення:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 router.put('/:id/checkout', async (req, res) => {
-  const client = await db.query('BEGIN');
-  
   try {
+    await db.query('BEGIN');
+    
     const { id } = req.params;
     const { date_out } = req.body;
 
@@ -213,7 +304,7 @@ router.put('/:id/checkout', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error(err);
+    console.error('❌ Помилка виселення:', err);
     res.status(500).json({ error: err.message });
   }
 });
