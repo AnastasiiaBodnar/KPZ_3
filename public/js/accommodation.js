@@ -3,10 +3,16 @@ let currentAccommodationPage = 1;
 let totalAccommodationPages = 1;
 const accommodationPerPage = 50;
 
-async function loadAccommodation(page = 1, status = 'active') {
+async function loadAccommodation(page = 1, status = '') {
   showLoading();
   try {
     currentAccommodationPage = page;
+    
+    // Якщо статус не переданий, беремо з фільтра
+    if (!status) {
+      const filterElement = document.getElementById('filterAccommodationStatus');
+      status = filterElement ? filterElement.value : 'active';
+    }
     
     const params = new URLSearchParams({
       page: currentAccommodationPage,
@@ -33,7 +39,7 @@ function displayAccommodation(accommodations) {
   const tbody = document.getElementById('accommodation-table');
   
   if (accommodations.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Записів про заселення не знайдено</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Записів про заселення не знайдено</td></tr>';
     return;
   }
   
@@ -56,6 +62,9 @@ function displayAccommodation(accommodations) {
       statusIcon = 'arrow-left-right';
     }
     
+    // ВАЖЛИВО: показуємо кнопки ТІЛЬКИ для активних заселень
+    const showActions = acc.status === 'active';
+    
     return `
       <tr class="${acc.status === 'active' ? '' : 'table-light'}">
         <td>${acc.id}</td>
@@ -66,7 +75,6 @@ function displayAccommodation(accommodations) {
         </td>
         <td><strong>${acc.room_number}</strong></td>
         <td>${acc.floor}</td>
-        <td>${acc.block || '-'}</td>
         <td>${new Date(acc.date_in).toLocaleDateString('uk-UA')}</td>
         <td>${acc.date_out ? new Date(acc.date_out).toLocaleDateString('uk-UA') : '-'}</td>
         <td>
@@ -75,7 +83,7 @@ function displayAccommodation(accommodations) {
           </span>
         </td>
         <td>
-          ${acc.status === 'active' ? `
+          ${showActions ? `
             <button class="btn btn-sm btn-primary btn-action" onclick="openTransferModal(${acc.id})" title="Переселити">
               <i class="bi bi-arrow-left-right"></i> Переселити
             </button>
@@ -146,7 +154,7 @@ async function openAccommodationModal() {
                   ${availableRooms.map(r => {
                     const freeBeds = r.total_beds - r.occupied_beds;
                     return `<option value="${r.id}">
-                      Кімната ${r.room_number} (${r.floor} поверх${r.block ? ', блок ' + r.block : ''}) - 
+                      Кімната ${r.room_number} (${r.floor} поверх) - 
                       ${freeBeds} ${freeBeds === 1 ? 'вільне місце' : 'вільних місць'}
                     </option>`;
                   }).join('')}
@@ -351,7 +359,7 @@ async function openTransferModal(accommodationId) {
           <div class="modal-body">
             <div class="alert alert-info">
               <strong>Студент:</strong> ${accommodation.student_name}<br>
-              <strong>Поточна кімната:</strong> ${accommodation.room_number} (${accommodation.floor} поверх${accommodation.block ? ', блок ' + accommodation.block : ''})
+              <strong>Поточна кімната:</strong> ${accommodation.room_number} (${accommodation.floor} поверх)
             </div>
             
             <form id="transferForm">
@@ -362,7 +370,7 @@ async function openTransferModal(accommodationId) {
                   ${otherRooms.map(r => {
                     const freeBeds = r.total_beds - r.occupied_beds;
                     return `<option value="${r.id}">
-                      Кімната ${r.room_number} (${r.floor} поверх${r.block ? ', блок ' + r.block : ''}) - 
+                      Кімната ${r.room_number} (${r.floor} поверх) - 
                       ${freeBeds} ${freeBeds === 1 ? 'вільне місце' : 'вільних місць'}
                     </option>`;
                   }).join('')}
@@ -462,7 +470,7 @@ async function checkoutStudent(accommodationId) {
 }
 
 function filterAccommodation() {
-  const status = document.getElementById('filterAccommodationStatus')?.value || 'active';
+  const status = document.getElementById('filterAccommodationStatus')?.value || '';
   loadAccommodation(1, status);
 }
 

@@ -1,12 +1,26 @@
 let roomsData = [];
+let currentRoomsPage = 1;
+let totalRoomsPages = 1;
+const roomsPerPage = 50;
 
-async function loadRooms() {
+async function loadRooms(page = 1) {
   showLoading();
   try {
-    const response = await fetch(`${API_URL}/rooms?limit=1000`);
+    currentRoomsPage = page;
+    
+    const params = new URLSearchParams({
+      page: currentRoomsPage,
+      limit: roomsPerPage
+    });
+    
+    const response = await fetch(`${API_URL}/rooms?${params}`);
     const result = await response.json();
-    roomsData = result.data || result;
+    
+    roomsData = result.data;
+    totalRoomsPages = result.pagination.totalPages;
+    
     displayRooms(roomsData);
+    displayPagination(result.pagination, 'rooms-pagination');
   } catch (error) {
     console.error('Error loading rooms:', error);
     showAlert('Помилка завантаження кімнат', 'danger');
@@ -17,36 +31,32 @@ async function loadRooms() {
 function displayRooms(rooms) {
   const tbody = document.getElementById('rooms-table');
   
-  if (!tbody) {
-    console.error('Table body not found');
-    return;
-  }
-  
   if (rooms.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Кімнат не знайдено</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Кімнат не знайдено</td></tr>';
     return;
   }
   
   tbody.innerHTML = rooms.map(room => {
-    const availableBeds = room.total_beds - room.occupied_beds;
-    const statusClass = availableBeds > 0 ? 'success' : 'danger';
-    const statusText = availableBeds > 0 ? 'Доступна' : 'Зайнята';
+    const freeBeds = room.total_beds - room.occupied_beds;
+    const status = freeBeds > 0 ? 'Вільна' : 'Заповнена';
+    const statusClass = freeBeds > 0 ? 'success' : 'danger';
     
     return `
       <tr>
         <td>${room.id}</td>
-        <td>${room.room_number}</td>
+        <td><strong>${room.room_number}</strong></td>
         <td>${room.floor}</td>
-        <td>${room.block || '-'}</td>
         <td>${room.total_beds}</td>
         <td>${room.occupied_beds}</td>
-        <td>${availableBeds}</td>
-        <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+        <td><strong>${freeBeds}</strong></td>
         <td>
-          <button class="btn btn-sm btn-warning btn-action" onclick="editRoom(${room.id})">
+          <span class="badge bg-${statusClass}">${status}</span>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-warning btn-action" onclick="editRoom(${room.id})" title="Редагувати">
             <i class="bi bi-pencil"></i>
           </button>
-          <button class="btn btn-sm btn-danger btn-action" onclick="deleteRoom(${room.id})">
+          <button class="btn btn-sm btn-danger btn-action" onclick="deleteRoom(${room.id})" title="Видалити">
             <i class="bi bi-trash"></i>
           </button>
         </td>
@@ -54,14 +64,9 @@ function displayRooms(rooms) {
   }).join('');
 }
 
-function openRoomModal(roomId = null) {
+async function openRoomModal(roomId = null) {
   const isEdit = roomId !== null;
-  let formData = { 
-    room_number: '', 
-    floor: '', 
-    block: '', 
-    total_beds: 2 
-  };
+  let formData = { room_number: '', floor: '', total_beds: '' };
   
   if (isEdit) {
     const room = roomsData.find(r => r.id === roomId);
@@ -73,7 +78,10 @@ function openRoomModal(roomId = null) {
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">${isEdit ? 'Редагувати кімнату' : 'Додати кімнату'}</h5>
+            <h5 class="modal-title">
+              <i class="bi bi-${isEdit ? 'gear' : 'plus-circle'}"></i> 
+              ${isEdit ? 'Редагувати кімнату' : 'Додати кімнату'}
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
@@ -87,18 +95,17 @@ function openRoomModal(roomId = null) {
                 <input type="number" class="form-control" id="floor" value="${formData.floor}" min="1" max="20" required>
               </div>
               <div class="mb-3">
-                <label class="form-label">Блок</label>
-                <input type="text" class="form-control" id="block" value="${formData.block || ''}" placeholder="A, B, C...">
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Всього місць *</label>
+                <label class="form-label">Кількість місць *</label>
                 <input type="number" class="form-control" id="total_beds" value="${formData.total_beds}" min="1" max="10" required>
+                <small class="text-muted">Максимум 10 місць в кімнаті</small>
               </div>
             </form>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-            <button type="button" class="btn btn-primary" onclick="saveRoom(${isEdit ? roomId : null})">Зберегти</button>
+            <button type="button" class="btn btn-primary" onclick="saveRoom(${isEdit ? roomId : null})">
+              <i class="bi bi-check-circle"></i> Зберегти
+            </button>
           </div>
         </div>
       </div>
@@ -108,10 +115,16 @@ function openRoomModal(roomId = null) {
 }
 
 async function saveRoom(roomId) {
+  const form = document.getElementById('roomForm');
+  
+  if (!form.checkValidity()) {
+    form.classList.add('was-validated');
+    return;
+  }
+  
   const formData = {
-    room_number: document.getElementById('room_number').value,
+    room_number: document.getElementById('room_number').value.trim(),
     floor: parseInt(document.getElementById('floor').value),
-    block: document.getElementById('block').value || null,
     total_beds: parseInt(document.getElementById('total_beds').value)
   };
   
@@ -123,14 +136,15 @@ async function saveRoom(roomId) {
       body: JSON.stringify(formData)
     });
     
+    const data = await response.json();
+    
     if (response.ok) {
       showAlert(roomId ? 'Кімнату оновлено' : 'Кімнату додано', 'success');
       bootstrap.Modal.getInstance(document.getElementById('roomModal')).hide();
-      loadRooms();
+      loadRooms(currentRoomsPage);
       loadStatistics();
     } else {
-      const error = await response.json();
-      showAlert('Помилка: ' + error.error, 'danger');
+      showAlert('Помилка: ' + data.error, 'danger');
     }
   } catch (error) {
     console.error('Error saving room:', error);
@@ -143,19 +157,30 @@ function editRoom(roomId) {
 }
 
 async function deleteRoom(roomId) {
-  if (!confirm('Ви впевнені, що хочете видалити цю кімнату?')) return;
+  const room = roomsData.find(r => r.id === roomId);
+  const confirmText = room 
+    ? `Ви впевнені, що хочете видалити кімнату ${room.room_number}?`
+    : 'Ви впевнені, що хочете видалити цю кімнату?';
+    
+  if (!confirm(confirmText)) return;
   
   try {
     const response = await fetch(`${API_URL}/rooms/${roomId}`, { method: 'DELETE' });
+    const data = await response.json();
+    
     if (response.ok) {
       showAlert('Кімнату видалено', 'success');
-      loadRooms();
+      loadRooms(currentRoomsPage);
       loadStatistics();
     } else {
-      showAlert('Помилка видалення', 'danger');
+      showAlert('Помилка: ' + data.error, 'danger');
     }
   } catch (error) {
     console.error('Error deleting room:', error);
     showAlert('Помилка видалення', 'danger');
   }
+}
+
+function changePageRooms(page) {
+  loadRooms(page);
 }

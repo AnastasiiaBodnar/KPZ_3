@@ -37,8 +37,7 @@ router.get('/', async (req, res) => {
         s.course,
         s.faculty,
         r.room_number, 
-        r.floor, 
-        r.block
+        r.floor
       FROM accommodation a
       JOIN students s ON a.student_id = s.id
       JOIN rooms r ON a.room_id = r.id
@@ -62,11 +61,11 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ВИПРАВЛЕНИЙ POST /api/accommodation - заселення з можливістю створити нарахування
+// ВИПРАВЛЕНИЙ POST /api/accommodation - заселення з блокуванням
 router.post('/', async (req, res) => {
-  const client = await db.query('BEGIN');
-  
   try {
+    await db.query('BEGIN');
+    
     const { student_id, room_id, date_in, create_payment, payment } = req.body;
 
     // Перевірка чи студент вже заселений
@@ -82,7 +81,7 @@ router.post('/', async (req, res) => {
       });
     }
     
-    // КРИТИЧНО: Отримуємо актуальний стан кімнати з блокуванням рядка
+    // КРИТИЧНО: Блокуємо рядок кімнати ДО перевірки
     const room = await db.query(
       'SELECT id, room_number, total_beds, occupied_beds FROM rooms WHERE id = $1 FOR UPDATE', 
       [room_id]
@@ -96,9 +95,9 @@ router.post('/', async (req, res) => {
     const currentRoom = room.rows[0];
     const availableBeds = currentRoom.total_beds - currentRoom.occupied_beds;
 
-    console.log(`🔍 Кімната ${currentRoom.room_number}: всього=${currentRoom.total_beds}, зайнято=${currentRoom.occupied_beds}, вільно=${availableBeds}`);
+    console.log(`🔍 [ПЕРЕВІРКА] Кімната ${currentRoom.room_number}: всього=${currentRoom.total_beds}, зайнято=${currentRoom.occupied_beds}, вільно=${availableBeds}`);
 
-    // Перевірка чи є вільні місця ДО створення запису
+    // ПЕРЕВІРКА: чи є вільні місця
     if (availableBeds <= 0) {
       await db.query('ROLLBACK');
       return res.status(400).json({ 
@@ -115,11 +114,11 @@ router.post('/', async (req, res) => {
     if (updateResult.rows.length === 0) {
       await db.query('ROLLBACK');
       return res.status(400).json({ 
-        error: `Не вдалося оновити кімнату. Можливо, всі місця вже зайняті.` 
+        error: `Не вдалося оновити кімнату ${currentRoom.room_number}. Всі місця вже зайняті.` 
       });
     }
 
-    console.log(`✅ Оновлено кімнату: зайнято ${updateResult.rows[0].occupied_beds} з ${updateResult.rows[0].total_beds}`);
+    console.log(`✅ [ОНОВЛЕНО] Кімната ${updateResult.rows[0].room_number}: зайнято ${updateResult.rows[0].occupied_beds} з ${updateResult.rows[0].total_beds}`);
 
     // Тепер створюємо запис про заселення
     const accommodationResult = await db.query(
@@ -181,6 +180,8 @@ router.post('/', async (req, res) => {
 
     await db.query('COMMIT');
     
+    console.log(`🎉 [УСПІХ] Студента ID=${student_id} заселено в кімнату ${currentRoom.room_number}`);
+    
     res.status(201).json({
       accommodation: accommodationResult.rows[0],
       payment_created: create_payment ? true : false,
@@ -193,23 +194,15 @@ router.post('/', async (req, res) => {
     });
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error('❌ Помилка заселення:', err);
-    
-    // Перевіряємо чи це помилка обмеження beds_check
-    if (err.message && err.message.includes('beds_check')) {
-      return res.status(400).json({ 
-        error: 'Перевищено ліміт місць у кімнаті. Спробуйте оновити сторінку.' 
-      });
-    }
-    
+    console.error('❌ [ПОМИЛКА] Заселення:', err);
     res.status(500).json({ error: err.message || 'Помилка заселення' });
   }
 });
 
 router.post('/:id/transfer', async (req, res) => {
-  const client = await db.query('BEGIN');
-  
   try {
+    await db.query('BEGIN');
+    
     const { id } = req.params;
     const { new_room_id, transfer_date } = req.body;
 
@@ -272,21 +265,24 @@ router.post('/:id/transfer', async (req, res) => {
     );
 
     await db.query('COMMIT');
+    
+    console.log(`🔄 [ПЕРЕСЕЛЕННЯ] Студента ID=${studentId} переселено з кімнати ${oldRoomId} в ${new_room_id}`);
+    
     res.json({
       message: 'Студента успішно переселено',
       accommodation: newAccommodation.rows[0]
     });
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error('❌ Помилка переселення:', err);
+    console.error('❌ [ПОМИЛКА] Переселення:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 router.put('/:id/checkout', async (req, res) => {
-  const client = await db.query('BEGIN');
-  
   try {
+    await db.query('BEGIN');
+    
     const { id } = req.params;
     const { date_out } = req.body;
 
@@ -318,10 +314,13 @@ router.put('/:id/checkout', async (req, res) => {
     );
 
     await db.query('COMMIT');
+    
+    console.log(`📤 [ВИСЕЛЕННЯ] Студента виселено з accommodation ID=${id}, кімната ID=${room_id}`);
+    
     res.json(result.rows[0]);
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error('❌ Помилка виселення:', err);
+    console.error('❌ [ПОМИЛКА] Виселення:', err);
     res.status(500).json({ error: err.message });
   }
 });

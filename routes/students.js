@@ -110,7 +110,6 @@ router.get('/:id', async (req, res) => {
       SELECT s.*, 
         r.room_number,
         r.floor,
-        r.block,
         a.date_in as accommodation_date,
         COALESCE(debt_info.total_debt, 0) as total_debt,
         COALESCE(debt_info.unpaid_months, 0) as unpaid_months

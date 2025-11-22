@@ -68,7 +68,7 @@ router.get('/available', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { room_number, floor, block, total_beds } = req.body;
+    const { room_number, floor, total_beds } = req.body;
     
     const existing = await db.query(
       'SELECT id FROM rooms WHERE room_number = $1',
@@ -80,8 +80,8 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      'INSERT INTO rooms (room_number, floor, block, total_beds) VALUES ($1, $2, $3, $4) RETURNING *',
-      [room_number, floor, block, total_beds]
+      'INSERT INTO rooms (room_number, floor, total_beds) VALUES ($1, $2, $3) RETURNING *',
+      [room_number, floor, total_beds]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -93,7 +93,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { room_number, floor, block, total_beds } = req.body;
+    const { room_number, floor, total_beds } = req.body;
     
     const room = await db.query('SELECT occupied_beds FROM rooms WHERE id = $1', [id]);
     if (room.rows.length === 0) {
@@ -116,8 +116,8 @@ router.put('/:id', async (req, res) => {
     }
 
     const result = await db.query(
-      'UPDATE rooms SET room_number = $1, floor = $2, block = $3, total_beds = $4 WHERE id = $5 RETURNING *',
-      [room_number, floor, block, total_beds, id]
+      'UPDATE rooms SET room_number = $1, floor = $2, total_beds = $3 WHERE id = $4 RETURNING *',
+      [room_number, floor, total_beds, id]
     );
     
     res.json(result.rows[0]);

@@ -218,7 +218,6 @@ async function viewStudentDetails(studentId) {
                   ${student.room_number ? `
                     <p><strong>Кімната:</strong> ${student.room_number}</p>
                     <p><strong>Поверх:</strong> ${student.floor}</p>
-                    <p><strong>Блок:</strong> ${student.block || '-'}</p>
                     <p><strong>Дата заселення:</strong> ${new Date(student.accommodation_date).toLocaleDateString('uk-UA')}</p>
                   ` : '<p class="text-muted">Студент не заселений</p>'}
                   
