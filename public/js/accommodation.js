@@ -3,7 +3,7 @@ let currentAccommodationPage = 1;
 let totalAccommodationPages = 1;
 const accommodationPerPage = 50;
 
-async function loadAccommodation(page = 1, status = '') {
+async function loadAccommodation(page = 1, status = 'active') {
   showLoading();
   try {
     currentAccommodationPage = page;
@@ -349,13 +349,14 @@ async function checkoutStudent(accommodationId) {
 }
 
 function filterAccommodation() {
-  const status = document.getElementById('filterAccommodationStatus')?.value || '';
+  const status = document.getElementById('filterAccommodationStatus')?.value || 'active';
   loadAccommodation(1, status);
 }
 
 function resetAccommodationFilters() {
-  if (document.getElementById('filterAccommodationStatus')) {
-    document.getElementById('filterAccommodationStatus').value = '';
+  const filterSelect = document.getElementById('filterAccommodationStatus');
+  if (filterSelect) {
+    filterSelect.value = 'active';
   }
-  loadAccommodation(1);
+  loadAccommodation(1, 'active');
 }

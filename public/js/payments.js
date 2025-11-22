@@ -46,7 +46,6 @@ function displayPayments(payments) {
     const statusClass = payment.status === 'paid' ? 'success' : 'danger';
     const statusText = payment.status === 'paid' ? 'Оплачено' : 'Не оплачено';
     
-    // Формування періоду
     let periodText = '';
     const monthCount = payment.month_to - payment.month_from + 1;
     
@@ -71,8 +70,8 @@ function displayPayments(payments) {
         <td><span class="badge bg-${statusClass}">${statusText}</span></td>
         <td>
           ${payment.status === 'unpaid' ? `
-            <button class="btn btn-sm btn-success btn-action" onclick="markAsPaid(${payment.id})" title="Підтвердити оплату">
-              <i class="bi bi-check-circle"></i> Оплачено
+            <button class="btn btn-sm btn-success btn-action" onclick="openPartialPaymentModal(${payment.id})" title="Внести оплату">
+              <i class="bi bi-cash"></i> Оплатити
             </button>
           ` : ''}
           <button class="btn btn-sm btn-danger btn-action" onclick="deletePayment(${payment.id})" title="Видалити">
@@ -81,6 +80,201 @@ function displayPayments(payments) {
         </td>
       </tr>`;
   }).join('');
+}
+
+async function openPartialPaymentModal(paymentId) {
+  const payment = paymentsData.find(p => p.id === paymentId);
+  
+  if (!payment) {
+    showAlert('Запис про оплату не знайдено', 'danger');
+    return;
+  }
+  
+  const monthCount = payment.month_to - payment.month_from + 1;
+  const totalAmount = parseFloat(payment.amount);
+  const months = ['Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень', 
+                  'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'];
+  
+  const periodText = payment.month_from === payment.month_to 
+    ? months[payment.month_from - 1]
+    : `${months[payment.month_from - 1]} - ${months[payment.month_to - 1]}`;
+  
+  document.getElementById('modals-container').innerHTML = `
+    <div class="modal fade" id="partialPaymentModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-cash-coin"></i> Внести оплату
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info">
+              <strong>Студент:</strong> ${payment.student_name}<br>
+              <strong>Період:</strong> ${periodText} ${payment.year}<br>
+              <strong>До сплати:</strong> ${totalAmount.toFixed(2)} грн (${monthCount} міс. × ${MONTHLY_RATE} грн)
+            </div>
+            
+            <form id="partialPaymentForm">
+              <div class="mb-3">
+                <label class="form-label">Скільки студент вніс? (грн) *</label>
+                <input type="number" class="form-control" id="paid_amount" 
+                       value="${totalAmount.toFixed(2)}" 
+                       step="0.01" min="0.01" max="${totalAmount}" required
+                       oninput="calculatePartialPayment(${totalAmount}, ${monthCount})">
+                <small class="text-muted">Введіть суму від 0.01 до ${totalAmount.toFixed(2)} грн</small>
+              </div>
+              
+              <div id="payment_breakdown" class="alert alert-success">
+                <strong>📊 Розрахунок:</strong><br>
+                <span id="breakdown_text">Повна оплата за ${monthCount} ${monthCount === 1 ? 'місяць' : 'місяці'}</span>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Дата оплати *</label>
+                <input type="date" class="form-control" id="partial_payment_date" 
+                       value="${new Date().toISOString().split('T')[0]}" required>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+            <button type="button" class="btn btn-success" onclick="savePartialPayment(${paymentId}, ${totalAmount}, ${monthCount})">
+              <i class="bi bi-check-circle"></i> Підтвердити оплату
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  const modal = new bootstrap.Modal(document.getElementById('partialPaymentModal'));
+  modal.show();
+  
+  // Додаємо функцію розрахунку в глобальну область
+  window.calculatePartialPayment = function(totalAmount, monthCount) {
+    const paidAmount = parseFloat(document.getElementById('paid_amount').value) || 0;
+    const remaining = totalAmount - paidAmount;
+    const monthsPaid = Math.floor(paidAmount / MONTHLY_RATE);
+    const monthsRemaining = monthCount - monthsPaid;
+    
+    const breakdown = document.getElementById('breakdown_text');
+    const breakdownDiv = document.getElementById('payment_breakdown');
+    
+    if (paidAmount >= totalAmount - 0.01) {
+      breakdown.innerHTML = '✅ <strong>Повна оплата</strong> за ' + monthCount + ' ' + (monthCount === 1 ? 'місяць' : 'місяці');
+      breakdownDiv.className = 'alert alert-success';
+    } else if (paidAmount >= MONTHLY_RATE) {
+      breakdown.innerHTML = 
+        '⚠️ <strong>Часткова оплата:</strong><br>' +
+        '• Оплачено: <strong>' + monthsPaid + ' ' + (monthsPaid === 1 ? 'місяць' : 'місяці') + '</strong> (' + paidAmount.toFixed(2) + ' грн)<br>' +
+        '• Залишок боргу: <strong>' + remaining.toFixed(2) + ' грн</strong> (≈ ' + monthsRemaining + ' ' + (monthsRemaining === 1 ? 'місяць' : 'місяці') + ')';
+      breakdownDiv.className = 'alert alert-warning';
+    } else if (paidAmount > 0) {
+      breakdown.innerHTML = '❌ <strong>Мінімальна сума оплати - ' + MONTHLY_RATE + ' грн (1 місяць)</strong>';
+      breakdownDiv.className = 'alert alert-danger';
+    } else {
+      breakdown.innerHTML = '❌ Введіть суму оплати';
+      breakdownDiv.className = 'alert alert-danger';
+    }
+  };
+  
+  // Викликаємо одразу
+  window.calculatePartialPayment(totalAmount, monthCount);
+}
+
+async function savePartialPayment(paymentId, totalAmount, monthCount) {
+  const form = document.getElementById('partialPaymentForm');
+  
+  if (!form.checkValidity()) {
+    form.classList.add('was-validated');
+    return;
+  }
+  
+  const paidAmount = parseFloat(document.getElementById('paid_amount').value);
+  const paymentDate = document.getElementById('partial_payment_date').value;
+  
+  if (paidAmount <= 0 || paidAmount > totalAmount) {
+    showAlert(`Сума має бути від 0.01 до ${totalAmount.toFixed(2)} грн`, 'warning');
+    return;
+  }
+  
+  if (paidAmount < MONTHLY_RATE && paidAmount < totalAmount) {
+    showAlert(`Мінімальна сума оплати - ${MONTHLY_RATE} грн (1 місяць)`, 'warning');
+    return;
+  }
+  
+  const remaining = totalAmount - paidAmount;
+  
+  // Повна оплата
+  if (remaining < 0.01) {
+    if (!confirm(`Підтвердити повну оплату ${totalAmount.toFixed(2)} грн?`)) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/payments/${paymentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          payment_date: paymentDate, 
+          status: 'paid' 
+        })
+      });
+      
+      if (response.ok) {
+        showAlert('Оплату підтверджено!', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('partialPaymentModal')).hide();
+        loadPayments(currentPaymentsPage);
+        loadStatistics();
+      } else {
+        const data = await response.json();
+        showAlert('Помилка: ' + data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showAlert('Помилка оновлення оплати', 'danger');
+    }
+  } else {
+    // Часткова оплата
+    const monthsPaid = Math.floor(paidAmount / MONTHLY_RATE);
+    const monthsRemaining = monthCount - monthsPaid;
+    
+    if (!confirm(
+      `Підтвердити часткову оплату?\n\n` +
+      `Оплачено: ${monthsPaid} міс. (${paidAmount.toFixed(2)} грн)\n` +
+      `Залишок боргу: ${remaining.toFixed(2)} грн (${monthsRemaining} міс.)\n\n` +
+      `Буде створено новий запис про залишок боргу.`
+    )) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/payments/${paymentId}/partial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paid_amount: paidAmount,
+          payment_date: paymentDate
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        showAlert(`Часткову оплату внесено! Залишок боргу: ${data.remaining_debt.toFixed(2)} грн`, 'success');
+        bootstrap.Modal.getInstance(document.getElementById('partialPaymentModal')).hide();
+        loadPayments(currentPaymentsPage);
+        loadStatistics();
+      } else {
+        showAlert('Помилка: ' + data.error, 'danger');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showAlert('Помилка збереження часткової оплати', 'danger');
+    }
+  }
+}
+
+async function markAsPaid(paymentId) {
+  openPartialPaymentModal(paymentId);
 }
 
 async function openPaymentModal() {
@@ -98,7 +292,7 @@ async function openPaymentModal() {
         <div class="modal-content">
           <div class="modal-header bg-primary text-white">
             <h5 class="modal-title">
-              <i class="bi bi-cash-coin"></i> Додати оплату
+              <i class="bi bi-plus-circle"></i> Додати нарахування
             </h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
@@ -117,8 +311,8 @@ async function openPaymentModal() {
               
               <div class="alert alert-info">
                 <i class="bi bi-info-circle"></i> 
-                <strong>Тариф:</strong> 500 грн за місяць проживання<br>
-                <strong>Увага:</strong> Можна вносити часткову оплату (будь-яку суму)
+                <strong>Тариф:</strong> ${MONTHLY_RATE} грн за місяць проживання<br>
+                <small>Ця форма створює нарахування (борг). Оплату можна внести пізніше.</small>
               </div>
               
               <div class="row">
@@ -137,7 +331,6 @@ async function openPaymentModal() {
                       `<option value="${m}" ${m === currentMonth ? 'selected' : ''}>${['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'][m-1]}</option>`
                     ).join('')}
                   </select>
-                  <small class="text-muted">Період за який вноситься оплата</small>
                 </div>
               </div>
               
@@ -147,34 +340,16 @@ async function openPaymentModal() {
               </div>
               
               <div class="mb-3">
-                <label class="form-label">Сума до сплати (грн) *</label>
-                <input type="number" class="form-control" id="payment_amount" value="500.00" step="0.01" min="0.01" required>
-                <div id="amount_info" class="mt-2">
-                  <span class="badge bg-info">Рекомендовано: 500 грн (1 місяць)</span>
-                  <span class="badge bg-warning ms-2">Можна внести будь-яку суму</span>
+                <div id="amount_info" class="alert alert-success">
+                  <strong>📊 Сума до сплати:</strong> <span id="calculated_amount">500 грн</span> (1 місяць)
                 </div>
-                <small class="text-muted">Ви можете внести повну або часткову оплату</small>
-              </div>
-              
-              <div class="mb-3">
-                <label class="form-label">Дата оплати</label>
-                <input type="date" class="form-control" id="payment_date">
-                <small class="text-muted">Залиште порожнім якщо ще не оплачено</small>
-              </div>
-              
-              <div class="mb-3">
-                <label class="form-label">Статус *</label>
-                <select class="form-select" id="payment_status" required onchange="togglePaymentDate()">
-                  <option value="unpaid">Не оплачено</option>
-                  <option value="paid">Оплачено</option>
-                </select>
               </div>
             </form>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
             <button type="button" class="btn btn-primary" onclick="savePayment()">
-              <i class="bi bi-check-circle"></i> Зберегти
+              <i class="bi bi-check-circle"></i> Створити нарахування
             </button>
           </div>
         </div>
@@ -182,43 +357,27 @@ async function openPaymentModal() {
     </div>
   `;
   
-  new bootstrap.Modal(document.getElementById('paymentModal')).show();
-}
-
-// Підказка про рекомендовану суму (не блокуємо ручне введення)
-function updatePaymentAmount() {
-  const monthFrom = parseInt(document.getElementById('payment_month_from').value);
-  const monthTo = parseInt(document.getElementById('payment_month_to').value);
+  const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+  modal.show();
   
-  if (monthTo < monthFrom) {
-    document.getElementById('payment_month_to').value = monthFrom;
-    updatePaymentAmount();
-    return;
-  }
+  window.updatePaymentAmount = function() {
+    const monthFrom = parseInt(document.getElementById('payment_month_from').value);
+    const monthTo = parseInt(document.getElementById('payment_month_to').value);
+    
+    if (monthTo < monthFrom) {
+      document.getElementById('payment_month_to').value = monthFrom;
+      window.updatePaymentAmount();
+      return;
+    }
+    
+    const monthCount = monthTo - monthFrom + 1;
+    const totalAmount = monthCount * MONTHLY_RATE;
+    
+    const amountInfo = document.getElementById('calculated_amount');
+    amountInfo.textContent = totalAmount + ' грн (' + monthCount + ' ' + (monthCount === 1 ? 'місяць' : monthCount < 5 ? 'місяці' : 'місяців') + ')';
+  };
   
-  const monthCount = monthTo - monthFrom + 1;
-  const recommendedAmount = monthCount * MONTHLY_RATE;
-  
-  const amountInfo = document.getElementById('amount_info');
-  if (monthCount === 1) {
-    amountInfo.innerHTML = `
-      <span class="badge bg-info">Рекомендовано: ${recommendedAmount} грн (1 місяць)</span>
-      <span class="badge bg-warning ms-2">Можна внести будь-яку суму</span>
-    `;
-  } else {
-    amountInfo.innerHTML = `
-      <span class="badge bg-info">Рекомендовано: ${recommendedAmount} грн (${monthCount} місяців × ${MONTHLY_RATE})</span>
-      <span class="badge bg-warning ms-2">Можна внести будь-яку суму</span>
-    `;
-  }
-}
-
-function togglePaymentDate() {
-  const status = document.getElementById('payment_status').value;
-  const dateInput = document.getElementById('payment_date');
-  if (status === 'paid' && !dateInput.value) {
-    dateInput.value = new Date().toISOString().split('T')[0];
-  }
+  window.updatePaymentAmount();
 }
 
 async function savePayment() {
@@ -231,17 +390,14 @@ async function savePayment() {
   
   const monthFrom = parseInt(document.getElementById('payment_month_from').value);
   const monthTo = parseInt(document.getElementById('payment_month_to').value);
-  const amount = parseFloat(document.getElementById('payment_amount').value);
   
   if (monthTo < monthFrom) {
     showAlert('Кінцевий місяць не може бути раніше початкового', 'warning');
     return;
   }
   
-  if (amount <= 0) {
-    showAlert('Сума повинна бути більше 0', 'warning');
-    return;
-  }
+  const monthCount = monthTo - monthFrom + 1;
+  const amount = monthCount * MONTHLY_RATE;
   
   const formData = {
     student_id: parseInt(document.getElementById('payment_student_id').value),
@@ -249,9 +405,11 @@ async function savePayment() {
     month_to: monthTo,
     year: parseInt(document.getElementById('payment_year').value),
     amount: amount,
-    payment_date: document.getElementById('payment_date').value || null,
-    status: document.getElementById('payment_status').value
+    payment_date: null,
+    status: 'unpaid'
   };
+  
+  if (!confirm(`Створити нарахування на ${amount} грн за ${monthCount} ${monthCount === 1 ? 'місяць' : 'місяці'}?`)) return;
   
   try {
     const response = await fetch(`${API_URL}/payments`, {
@@ -263,7 +421,7 @@ async function savePayment() {
     const data = await response.json();
     
     if (response.ok) {
-      showAlert('Оплату додано', 'success');
+      showAlert('Нарахування створено', 'success');
       bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
       loadPayments(currentPaymentsPage);
       loadStatistics();
@@ -273,36 +431,6 @@ async function savePayment() {
   } catch (error) {
     console.error('Error saving payment:', error);
     showAlert('Помилка збереження', 'danger');
-  }
-}
-
-async function markAsPaid(paymentId) {
-  const payment = paymentsData.find(p => p.id === paymentId);
-  const confirmText = payment 
-    ? `Підтвердити оплату для ${payment.student_name}?`
-    : 'Підтвердити оплату?';
-    
-  if (!confirm(confirmText)) return;
-  
-  const payment_date = new Date().toISOString().split('T')[0];
-  
-  try {
-    const response = await fetch(`${API_URL}/payments/${paymentId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payment_date, status: 'paid' })
-    });
-    
-    if (response.ok) {
-      showAlert('Оплату підтверджено', 'success');
-      loadPayments(currentPaymentsPage);
-      loadStatistics();
-    } else {
-      showAlert('Помилка оновлення оплати', 'danger');
-    }
-  } catch (error) {
-    console.error('Error updating payment:', error);
-    showAlert('Помилка оновлення', 'danger');
   }
 }
 

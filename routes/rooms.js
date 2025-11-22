@@ -1,0 +1,152 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
+
+
+app.get('/api/rooms', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+    const floor = req.query.floor || '';
+    const status = req.query.status || '';
+
+    let whereClause = 'WHERE 1=1';
+    const params = [];
+    let paramCount = 0;
+
+    if (floor) {
+      paramCount++;
+      whereClause += ` AND floor = $${paramCount}`;
+      params.push(floor);
+    }
+
+    if (status === 'available') {
+      whereClause += ` AND occupied_beds < total_beds`;
+    } else if (status === 'full') {
+      whereClause += ` AND occupied_beds >= total_beds`;
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM rooms ${whereClause}`;
+    const countResult = await db.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].count);
+
+    params.push(limit, offset);
+    const query = `
+      SELECT * FROM rooms 
+      ${whereClause}
+      ORDER BY floor, room_number
+      LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+    const result = await db.query(query, params);
+    
+    res.json({
+      data: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/rooms/available', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM rooms WHERE occupied_beds < total_beds ORDER BY floor, room_number'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/rooms', async (req, res) => {
+  try {
+    const { room_number, floor, block, total_beds } = req.body;
+    
+    const existing = await db.query(
+      'SELECT id FROM rooms WHERE room_number = $1',
+      [room_number]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Кімната з таким номером вже існує' });
+    }
+
+    const result = await db.query(
+      'INSERT INTO rooms (room_number, floor, block, total_beds) VALUES ($1, $2, $3, $4) RETURNING *',
+      [room_number, floor, block, total_beds]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/rooms/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { room_number, floor, block, total_beds } = req.body;
+    
+    const room = await db.query('SELECT occupied_beds FROM rooms WHERE id = $1', [id]);
+    if (room.rows.length === 0) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    
+    if (total_beds < room.rows[0].occupied_beds) {
+      return res.status(400).json({ 
+        error: `Неможливо встановити ${total_beds} місць. Зараз зайнято ${room.rows[0].occupied_beds} місць.` 
+      });
+    }
+
+    const existing = await db.query(
+      'SELECT id FROM rooms WHERE room_number = $1 AND id != $2',
+      [room_number, id]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Кімната з таким номером вже існує' });
+    }
+
+    const result = await db.query(
+      'UPDATE rooms SET room_number = $1, floor = $2, block = $3, total_beds = $4 WHERE id = $5 RETURNING *',
+      [room_number, floor, block, total_beds, id]
+    );
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/rooms/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const occupied = await db.query('SELECT occupied_beds FROM rooms WHERE id = $1', [id]);
+    if (occupied.rows.length === 0) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    
+    if (occupied.rows[0].occupied_beds > 0) {
+      return res.status(400).json({ 
+        error: 'Неможливо видалити кімнату з заселеними студентами' 
+      });
+    }
+
+    const result = await db.query('DELETE FROM rooms WHERE id = $1 RETURNING *', [id]);
+    res.json({ message: 'Room deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
