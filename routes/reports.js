@@ -130,6 +130,7 @@ router.get('/debtors/pdf', async (req, res) => {
   }
 });
 
+// складний запит
 router.get('/charts/faculty-stats', async (req, res) => {
   try {
     const result = await db.query(`

@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET /api/students - список студентів з пагінацією
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -47,6 +46,8 @@ router.get('/', async (req, res) => {
     const total = parseInt(countResult.rows[0].count);
 
     params.push(limit, offset);
+
+    // склданий запит для карточки студента
     const query = `
       SELECT s.*, 
         r.room_number,
@@ -84,7 +85,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/students/available - студенти які не заселені
+//студенти які не заселені
 router.get('/available', async (req, res) => {
   try {
     const query = `
@@ -102,7 +103,6 @@ router.get('/available', async (req, res) => {
   }
 });
 
-// GET /api/students/:id - один студент
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -194,7 +194,6 @@ router.get('/:id/coursemates', async (req, res) => {
   }
 });
 
-// POST /api/students - створити студента
 router.post('/', async (req, res) => {
   try {
     const { surname, name, patronymic, course, faculty, phone, passport } = req.body;
@@ -224,7 +223,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/students/:id - оновити студента
+// оновити студента
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -254,7 +253,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/students/:id - видалити студента
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;

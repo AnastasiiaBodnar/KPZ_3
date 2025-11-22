@@ -4,7 +4,6 @@ const db = require('../db');
 
 const MONTHLY_RATE = 500; // 500 грн за місяць
 
-// GET /api/payments - список оплат з пагінацією
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -65,7 +64,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/payments/debtors - боржники
 router.get('/debtors', async (req, res) => {
   try {
     const result = await db.query(`
@@ -86,7 +84,7 @@ router.get('/debtors', async (req, res) => {
   }
 });
 
-// POST /api/payments - створити нарахування
+//створити нарахування
 router.post('/', async (req, res) => {
   try {
     const { student_id, month_from, month_to, year, amount, payment_date, status } = req.body;
@@ -119,6 +117,7 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Студента не знайдено' });
     }
 
+// складний запит Перевірка перекриття періодів
     const existing = await db.query(`
       SELECT id, month_from, month_to FROM payments 
       WHERE student_id = $1 
@@ -152,7 +151,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// POST /api/payments/:id/partial - ЧАСТКОВА ОПЛАТА (головна фішка!)
+// часткова оплата
 router.post('/:id/partial', async (req, res) => {
   const client = await db.query('BEGIN');
   
@@ -183,7 +182,6 @@ router.post('/:id/partial', async (req, res) => {
     
     const remaining = totalAmount - paidAmount;
     
-    // Якщо повна оплата (різниця менше 1 копійки)
     if (remaining < 0.01) {
       await db.query(
         'UPDATE payments SET payment_date = $1, status = $2 WHERE id = $3',
@@ -242,7 +240,6 @@ router.post('/:id/partial', async (req, res) => {
   }
 });
 
-// PUT /api/payments/:id - оновити оплату
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -264,7 +261,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/payments/:id - видалити оплату
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;

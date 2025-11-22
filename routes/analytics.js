@@ -5,6 +5,8 @@ const db = require('../db');
 router.get('/top-debtors', async (req, res) => {
   try {
     const limit = req.query.limit || 10;
+
+    // складний запит топ боржників
     const result = await db.query(`
       SELECT 
         s.id,
