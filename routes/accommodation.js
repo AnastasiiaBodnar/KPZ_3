@@ -64,9 +64,9 @@ router.get('/', async (req, res) => {
 
 // ВИПРАВЛЕНИЙ POST /api/accommodation - заселення з можливістю створити нарахування
 router.post('/', async (req, res) => {
+  const client = await db.query('BEGIN');
+  
   try {
-    await db.query('BEGIN');
-    
     const { student_id, room_id, date_in, create_payment, payment } = req.body;
 
     // Перевірка чи студент вже заселений
@@ -84,7 +84,7 @@ router.post('/', async (req, res) => {
     
     // КРИТИЧНО: Отримуємо актуальний стан кімнати з блокуванням рядка
     const room = await db.query(
-      'SELECT * FROM rooms WHERE id = $1 FOR UPDATE', 
+      'SELECT id, room_number, total_beds, occupied_beds FROM rooms WHERE id = $1 FOR UPDATE', 
       [room_id]
     );
     
@@ -98,7 +98,7 @@ router.post('/', async (req, res) => {
 
     console.log(`🔍 Кімната ${currentRoom.room_number}: всього=${currentRoom.total_beds}, зайнято=${currentRoom.occupied_beds}, вільно=${availableBeds}`);
 
-    // Перевірка чи є вільні місця
+    // Перевірка чи є вільні місця ДО створення запису
     if (availableBeds <= 0) {
       await db.query('ROLLBACK');
       return res.status(400).json({ 
@@ -106,19 +106,26 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Створюємо запис про заселення
+    // ВАЖЛИВО: Спочатку оновлюємо кількість зайнятих місць
+    const updateResult = await db.query(
+      'UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1 AND occupied_beds < total_beds RETURNING *',
+      [room_id]
+    );
+
+    if (updateResult.rows.length === 0) {
+      await db.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: `Не вдалося оновити кімнату. Можливо, всі місця вже зайняті.` 
+      });
+    }
+
+    console.log(`✅ Оновлено кімнату: зайнято ${updateResult.rows[0].occupied_beds} з ${updateResult.rows[0].total_beds}`);
+
+    // Тепер створюємо запис про заселення
     const accommodationResult = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [student_id, room_id, date_in || new Date(), 'active']
     );
-
-    // Оновлюємо кількість зайнятих місць у кімнаті
-    const updateResult = await db.query(
-      'UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1 RETURNING *',
-      [room_id]
-    );
-
-    console.log(`✅ Оновлено кімнату: зайнято ${updateResult.rows[0].occupied_beds} з ${updateResult.rows[0].total_beds}`);
 
     // Якщо потрібно створити нарахування
     if (create_payment && payment) {
@@ -187,14 +194,22 @@ router.post('/', async (req, res) => {
   } catch (err) {
     await db.query('ROLLBACK');
     console.error('❌ Помилка заселення:', err);
-    res.status(500).json({ error: err.message });
+    
+    // Перевіряємо чи це помилка обмеження beds_check
+    if (err.message && err.message.includes('beds_check')) {
+      return res.status(400).json({ 
+        error: 'Перевищено ліміт місць у кімнаті. Спробуйте оновити сторінку.' 
+      });
+    }
+    
+    res.status(500).json({ error: err.message || 'Помилка заселення' });
   }
 });
 
 router.post('/:id/transfer', async (req, res) => {
+  const client = await db.query('BEGIN');
+  
   try {
-    await db.query('BEGIN');
-    
     const { id } = req.params;
     const { new_room_id, transfer_date } = req.body;
 
@@ -244,15 +259,17 @@ router.post('/:id/transfer', async (req, res) => {
       [dateTransfer, id]
     );
 
+    // Оновлюємо стару кімнату
+    await db.query('UPDATE rooms SET occupied_beds = occupied_beds - 1 WHERE id = $1', [oldRoomId]);
+
+    // Оновлюємо нову кімнату
+    await db.query('UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1', [new_room_id]);
+
     // Створюємо нове заселення
     const newAccommodation = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [studentId, new_room_id, dateTransfer, 'active']
     );
-
-    // Оновлюємо обидві кімнати
-    await db.query('UPDATE rooms SET occupied_beds = occupied_beds - 1 WHERE id = $1', [oldRoomId]);
-    await db.query('UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1', [new_room_id]);
 
     await db.query('COMMIT');
     res.json({
@@ -267,9 +284,9 @@ router.post('/:id/transfer', async (req, res) => {
 });
 
 router.put('/:id/checkout', async (req, res) => {
+  const client = await db.query('BEGIN');
+  
   try {
-    await db.query('BEGIN');
-    
     const { id } = req.params;
     const { date_out } = req.body;
 
