@@ -91,6 +91,11 @@
               <i class="bi bi-cash-coin"></i> Оплати
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" onclick="showSection('analytics')">
+              <i class="bi bi-graph-up"></i> Аналітика
+            </a>
+          </li>
         </ul>
         <span class="navbar-text">
           <i class="bi bi-person-circle"></i> Адміністратор
@@ -287,29 +292,151 @@
       </div>
     </div>
 
+    <!-- Секція Аналітика -->
+    <div id="analytics-section" class="content-section d-none">
+      <h2 class="mb-4"><i class="bi bi-graph-up"></i> Аналітика</h2>
+      
+      <!-- Топ боржників -->
+      <div class="card mb-4">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Топ 10 боржників</h5>
+          <button class="btn btn-light btn-sm" onclick="loadTopDebtors()">
+            <i class="bi bi-arrow-clockwise"></i> Оновити
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Студент</th>
+                  <th>Факультет</th>
+                  <th>Курс</th>
+                  <th>Телефон</th>
+                  <th>Неоплачених місяців</th>
+                  <th>Загальний борг (грн)</th>
+                </tr>
+              </thead>
+              <tbody id="top-debtors-table">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Завантаженість по поверхах -->
+      <div class="card mb-4">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Завантаженість по поверхах</h5>
+          <button class="btn btn-light btn-sm" onclick="loadFloorsAnalytics()">
+            <i class="bi bi-arrow-clockwise"></i> Оновити
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>Поверх</th>
+                  <th>Кімнат</th>
+                  <th>Всього місць</th>
+                  <th>Зайнято</th>
+                  <th>Вільно</th>
+                  <th>Заповненість (%)</th>
+                  <th>Прогрес</th>
+                </tr>
+              </thead>
+              <tbody id="floors-analytics-table">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Пошук сусідів та однокурсників -->
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="bi bi-search"></i> Пошук зв'язків студента</h5>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Оберіть студента</label>
+              <select class="form-select" id="student-selector" onchange="loadStudentConnections()">
+                <option value="">-- Оберіть студента --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Сусіди -->
+          <div id="roommates-section" class="d-none mb-4">
+            <h6 class="border-bottom pb-2"><i class="bi bi-people"></i> Сусіди по кімнаті</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>Студент</th>
+                    <th>Факультет</th>
+                    <th>Курс</th>
+                    <th>Телефон</th>
+                    <th>Дата заселення</th>
+                  </tr>
+                </thead>
+                <tbody id="roommates-table">
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Однокурсники -->
+          <div id="coursemates-section" class="d-none">
+            <h6 class="border-bottom pb-2"><i class="bi bi-mortarboard"></i> Однокурсники з того ж факультету</h6>
+            <div class="alert alert-info" id="coursemates-info"></div>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>Студент</th>
+                    <th>Кімната</th>
+                    <th>Поверх</th>
+                    <th>Телефон</th>
+                    <th>Борг (грн)</th>
+                  </tr>
+                </thead>
+                <tbody id="coursemates-table">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div id="modals-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/students.js"></script>
-    <script src="js/rooms.js"></script>
-    <script src="js/accommodation.js"></script>
-    <script src="js/payments.js"></script>
-    
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('searchStudent').addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            navigateSearch(1); 
-          } else if (e.key === 'Enter' && e.shiftKey) {
-            e.preventDefault();
-            navigateSearch(-1); 
-          }
-        });
+  <script src="js/utils.js"></script>
+  <script src="js/students.js"></script>
+  <script src="js/rooms.js"></script>
+  <script src="js/accommodation.js"></script>
+  <script src="js/payments.js"></script>
+  <script src="js/analytics.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('searchStudent').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          navigateSearch(1); 
+        } else if (e.key === 'Enter' && e.shiftKey) {
+          e.preventDefault();
+          navigateSearch(-1); 
+        }
       });
-    </script>
+    });
+  </script>
 </body>
 </html>

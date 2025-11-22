@@ -52,6 +52,11 @@ function showSection(sectionName) {
     case 'payments':
       loadPayments();
       break;
+    case 'analytics':
+      loadTopDebtors();
+      loadFloorsAnalytics();
+      loadStudentSelector();
+      break;
   }
 }
 
