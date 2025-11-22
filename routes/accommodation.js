@@ -61,7 +61,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ВИПРАВЛЕНИЙ POST /api/accommodation - заселення з блокуванням
 router.post('/', async (req, res) => {
   try {
     await db.query('BEGIN');
@@ -224,7 +223,6 @@ router.post('/:id/transfer', async (req, res) => {
       return res.status(400).json({ error: 'Студент вже в цій кімнаті' });
     }
 
-    // Блокуємо нову кімнату для перевірки
     const newRoom = await db.query(
       'SELECT * FROM rooms WHERE id = $1 FOR UPDATE', 
       [new_room_id]
@@ -246,19 +244,15 @@ router.post('/:id/transfer', async (req, res) => {
 
     const dateTransfer = transfer_date || new Date();
 
-    // Закриваємо старе заселення
     await db.query(
       "UPDATE accommodation SET date_out = $1, status = 'transferred' WHERE id = $2",
       [dateTransfer, id]
     );
 
-    // Оновлюємо стару кімнату
     await db.query('UPDATE rooms SET occupied_beds = occupied_beds - 1 WHERE id = $1', [oldRoomId]);
 
-    // Оновлюємо нову кімнату
     await db.query('UPDATE rooms SET occupied_beds = occupied_beds + 1 WHERE id = $1', [new_room_id]);
 
-    // Створюємо нове заселення
     const newAccommodation = await db.query(
       'INSERT INTO accommodation (student_id, room_id, date_in, status) VALUES ($1, $2, $3, $4) RETURNING *',
       [studentId, new_room_id, dateTransfer, 'active']
@@ -266,7 +260,7 @@ router.post('/:id/transfer', async (req, res) => {
 
     await db.query('COMMIT');
     
-    console.log(`🔄 [ПЕРЕСЕЛЕННЯ] Студента ID=${studentId} переселено з кімнати ${oldRoomId} в ${new_room_id}`);
+    console.log(` [ПЕРЕСЕЛЕННЯ] Студента ID=${studentId} переселено з кімнати ${oldRoomId} в ${new_room_id}`);
     
     res.json({
       message: 'Студента успішно переселено',
@@ -274,7 +268,7 @@ router.post('/:id/transfer', async (req, res) => {
     });
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error('❌ [ПОМИЛКА] Переселення:', err);
+    console.error(' [ПОМИЛКА] Переселення:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -315,12 +309,12 @@ router.put('/:id/checkout', async (req, res) => {
 
     await db.query('COMMIT');
     
-    console.log(`📤 [ВИСЕЛЕННЯ] Студента виселено з accommodation ID=${id}, кімната ID=${room_id}`);
+    console.log(` [ВИСЕЛЕННЯ] Студента виселено з accommodation ID=${id}, кімната ID=${room_id}`);
     
     res.json(result.rows[0]);
   } catch (err) {
     await db.query('ROLLBACK');
-    console.error('❌ [ПОМИЛКА] Виселення:', err);
+    console.error(' [ПОМИЛКА] Виселення:', err);
     res.status(500).json({ error: err.message });
   }
 });

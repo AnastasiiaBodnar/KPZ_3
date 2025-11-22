@@ -120,9 +120,6 @@ async function loadStatistics() {
   hideLoading();
 }
 
-// ==================== ГРАФІКИ ДЛЯ ГОЛОВНОЇ ====================
-
-// Завантаження кругової діаграми заповненості
 async function loadOccupancyChart() {
   try {
     const statsResponse = await fetch(`${API_URL}/statistics`);
@@ -131,7 +128,6 @@ async function loadOccupancyChart() {
     const ctx = document.getElementById('occupancyChart');
     if (!ctx) return;
 
-    // Знищити попередню діаграму
     if (occupancyChart) {
       occupancyChart.destroy();
     }
@@ -147,8 +143,8 @@ async function loadOccupancyChart() {
         datasets: [{
           data: [occupied, free],
           backgroundColor: [
-            '#ff6384',  // червоний для зайнятих
-            '#36a2eb'   // синій для вільних
+            '#ff6384', 
+            '#36a2eb'   
           ],
           borderWidth: 2,
           borderColor: '#fff',
@@ -202,7 +198,6 @@ async function loadOccupancyChart() {
   }
 }
 
-// Завантаження діаграми факультетів для головної
 async function loadDashboardFacultyChart() {
   try {
     const response = await fetch(`${API_URL}/reports/charts/faculty-stats`);
@@ -211,7 +206,6 @@ async function loadDashboardFacultyChart() {
     const ctx = document.getElementById('facultyChart');
     if (!ctx) return;
 
-    // Знищити попередню діаграму
     if (facultyChart) {
       facultyChart.destroy();
     }
@@ -289,7 +283,6 @@ async function loadDashboardFacultyChart() {
   }
 }
 
-// Завантаження діаграми оплат для головної
 async function loadDashboardPaymentsChart() {
   try {
     const response = await fetch(`${API_URL}/reports/charts/payments-by-month`);
@@ -299,7 +292,6 @@ async function loadDashboardPaymentsChart() {
     const ctx = document.getElementById('paymentsChart');
     if (!ctx) return;
 
-    // Знищити попередню діаграму
     if (paymentsChart) {
       paymentsChart.destroy();
     }
@@ -375,7 +367,6 @@ async function loadDashboardPaymentsChart() {
   }
 }
 
-// Завантаження всіх графіків для головної
 async function loadDashboardCharts() {
   showLoading();
   try {
@@ -390,9 +381,6 @@ async function loadDashboardCharts() {
   hideLoading();
 }
 
-// ==================== ПАГІНАЦІЯ ====================
-
-// Функція для відображення пагінації
 function displayPagination(pagination, containerId) {
   const container = document.getElementById(containerId);
   
@@ -410,7 +398,6 @@ function displayPagination(pagination, containerId) {
   
   let paginationHTML = '<nav><ul class="pagination justify-content-center mb-0">';
   
-  // Кнопка "Перша"
   paginationHTML += `
     <li class="page-item ${page === 1 ? 'disabled' : ''}">
       <a class="page-link" href="#" onclick="changePage${getEntityName(containerId)}(1); return false;">
@@ -419,7 +406,6 @@ function displayPagination(pagination, containerId) {
     </li>
   `;
   
-  // Кнопка "Попередня"
   paginationHTML += `
     <li class="page-item ${page === 1 ? 'disabled' : ''}">
       <a class="page-link" href="#" onclick="changePage${getEntityName(containerId)}(${page - 1}); return false;">
@@ -428,11 +414,9 @@ function displayPagination(pagination, containerId) {
     </li>
   `;
   
-  // Номери сторінок
   let startPage = Math.max(1, page - 2);
   let endPage = Math.min(totalPages, page + 2);
   
-  // Показуємо першу сторінку якщо не в діапазоні
   if (startPage > 1) {
     paginationHTML += `
       <li class="page-item">
@@ -452,7 +436,6 @@ function displayPagination(pagination, containerId) {
     `;
   }
   
-  // Показуємо останню сторінку якщо не в діапазоні
   if (endPage < totalPages) {
     if (endPage < totalPages - 1) {
       paginationHTML += '<li class="page-item disabled"><span class="page-link">...</span></li>';
@@ -464,7 +447,6 @@ function displayPagination(pagination, containerId) {
     `;
   }
   
-  // Кнопка "Наступна"
   paginationHTML += `
     <li class="page-item ${page === totalPages ? 'disabled' : ''}">
       <a class="page-link" href="#" onclick="changePage${getEntityName(containerId)}(${page + 1}); return false;">
@@ -473,7 +455,6 @@ function displayPagination(pagination, containerId) {
     </li>
   `;
   
-  // Кнопка "Остання"
   paginationHTML += `
     <li class="page-item ${page === totalPages ? 'disabled' : ''}">
       <a class="page-link" href="#" onclick="changePage${getEntityName(containerId)}(${totalPages}); return false;">
@@ -483,8 +464,7 @@ function displayPagination(pagination, containerId) {
   `;
   
   paginationHTML += '</ul></nav>';
-  
-  // Додаємо інформацію про сторінку
+
   paginationHTML += `
     <div class="text-center mt-2 text-muted">
       <small>Сторінка ${page} з ${totalPages}</small>
@@ -494,7 +474,6 @@ function displayPagination(pagination, containerId) {
   container.innerHTML = paginationHTML;
 }
 
-// Допоміжна функція для визначення entity за ID контейнера
 function getEntityName(containerId) {
   if (containerId.includes('students')) return 'Students';
   if (containerId.includes('rooms')) return 'Rooms';
@@ -503,7 +482,6 @@ function getEntityName(containerId) {
   return '';
 }
 
-// Функції зміни сторінки для кожної сутності
 function changePageStudents(page) {
   loadStudents(null, null, page);
 }
@@ -520,12 +498,10 @@ function changePagePayments(page) {
   loadPayments(page);
 }
 
-// ==================== ІНІЦІАЛІЗАЦІЯ ====================
 
 document.addEventListener('DOMContentLoaded', () => {
   loadStatistics();
-  
-  // Підтримка Enter/Shift+Enter для пошуку студентів
+
   const searchInput = document.getElementById('searchStudent');
   if (searchInput) {
     searchInput.addEventListener('keydown', (e) => {

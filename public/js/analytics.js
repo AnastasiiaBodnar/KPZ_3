@@ -1,4 +1,3 @@
-// Топ боржників
 async function loadTopDebtors() {
   showLoading();
   try {
@@ -37,7 +36,6 @@ function displayTopDebtors(debtors) {
   `).join('');
 }
 
-// Завантаженість по поверхах
 async function loadFloorsAnalytics() {
   showLoading();
   try {
@@ -87,7 +85,6 @@ function displayFloorsAnalytics(floors) {
   }).join('');
 }
 
-// Завантаження списку студентів у селектор
 async function loadStudentSelector() {
   try {
     const response = await fetch(`${API_URL}/students?limit=1000`);
@@ -104,7 +101,6 @@ async function loadStudentSelector() {
   }
 }
 
-// Завантаження сусідів та однокурсників
 async function loadStudentConnections() {
   const studentId = document.getElementById('student-selector').value;
   
@@ -117,12 +113,10 @@ async function loadStudentConnections() {
   showLoading();
   
   try {
-    // Завантаження сусідів
     const roommatesResponse = await fetch(`${API_URL}/students/${studentId}/roommates`);
     const roommates = await roommatesResponse.json();
     displayRoommates(roommates);
     
-    // Завантаження однокурсників
     const coursematesResponse = await fetch(`${API_URL}/students/${studentId}/coursemates`);
     const coursemates = await coursematesResponse.json();
     displayCoursemates(coursemates);
@@ -185,7 +179,6 @@ function displayCoursemates(coursemates) {
   section.classList.remove('d-none');
 }
 
-// Показати деталі студента (можна розширити пізніше)
 function showStudentDetails(studentId) {
   showAlert(`Деталі студента #${studentId} (розробка...)`, 'info');
 }

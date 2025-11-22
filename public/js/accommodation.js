@@ -8,7 +8,6 @@ async function loadAccommodation(page = 1, status = '') {
   try {
     currentAccommodationPage = page;
     
-    // Якщо статус не переданий, беремо з фільтра
     if (!status) {
       const filterElement = document.getElementById('filterAccommodationStatus');
       status = filterElement ? filterElement.value : 'active';
@@ -62,7 +61,6 @@ function displayAccommodation(accommodations) {
       statusIcon = 'arrow-left-right';
     }
     
-    // ВАЖЛИВО: показуємо кнопки ТІЛЬКИ для активних заселень
     const showActions = acc.status === 'active';
     
     return `
@@ -99,11 +97,9 @@ function displayAccommodation(accommodations) {
 }
 
 async function openAccommodationModal() {
-  // Отримуємо студентів які не заселені
   const studentsResponse = await fetch(`${API_URL}/students/available`);
   const students = await studentsResponse.json();
   
-  // Отримуємо кімнати з вільними місцями
   const roomsResponse = await fetch(`${API_URL}/rooms/available`);
   const availableRooms = await roomsResponse.json();
   
@@ -212,7 +208,7 @@ async function openAccommodationModal() {
                 
                 <div class="mb-3">
                   <div id="accommodation_amount_info" class="alert alert-success">
-                    <strong>📊 Сума до сплати:</strong> <span id="accommodation_calculated_amount">${MONTHLY_RATE} грн</span> (1 місяць)
+                    <strong> Сума до сплати:</strong> <span id="accommodation_calculated_amount">${MONTHLY_RATE} грн</span> (1 місяць)
                   </div>
                 </div>
                 
@@ -238,7 +234,6 @@ async function openAccommodationModal() {
   const modal = new bootstrap.Modal(document.getElementById('accommodationModal'));
   modal.show();
   
-  // Додаємо функції в глобальну область
   window.togglePaymentFields = function() {
     const checked = document.getElementById('create_payment').checked;
     const fields = document.getElementById('payment_fields');
@@ -278,7 +273,6 @@ async function saveAccommodation() {
     create_payment: document.getElementById('create_payment').checked
   };
   
-  // Якщо створюємо нарахування
   if (formData.create_payment) {
     const monthFrom = parseInt(document.getElementById('payment_month_from').value);
     const monthTo = parseInt(document.getElementById('payment_month_to').value);
@@ -325,7 +319,6 @@ async function saveAccommodation() {
   }
 }
 
-// ФУНКЦІЯ: Переселення студента
 async function openTransferModal(accommodationId) {
   const accommodation = accommodationData.find(a => a.id === accommodationId);
   
@@ -334,11 +327,9 @@ async function openTransferModal(accommodationId) {
     return;
   }
   
-  // Отримуємо кімнати з вільними місцями (крім поточної)
   const roomsResponse = await fetch(`${API_URL}/rooms/available`);
   const availableRooms = await roomsResponse.json();
   
-  // Фільтруємо поточну кімнату
   const otherRooms = availableRooms.filter(r => r.id !== accommodation.room_id);
   
   if (otherRooms.length === 0) {

@@ -119,7 +119,6 @@ function highlightText(text, searchTerm) {
 }
 
 function searchStudents() {
-  // Скидаємо на першу сторінку при новому пошуку
   currentPage = 1;
   loadStudents(null, null, 1);
 }
@@ -185,7 +184,6 @@ function resetFilters() {
   loadStudents(null, null, 1);
 }
 
-// Перегляд деталей студента
 async function viewStudentDetails(studentId) {
   showLoading();
   try {

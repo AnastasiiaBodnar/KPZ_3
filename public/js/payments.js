@@ -2,7 +2,7 @@ let paymentsData = [];
 let currentPaymentsPage = 1;
 let totalPaymentsPages = 1;
 const paymentsPerPage = 50;
-const MONTHLY_RATE = 500; // 500 грн за місяць
+const MONTHLY_RATE = 500; 
 
 async function loadPayments(page = 1, status = '', year = '') {
   showLoading();
@@ -127,7 +127,7 @@ async function openPartialPaymentModal(paymentId) {
               </div>
               
               <div id="payment_breakdown" class="alert alert-success">
-                <strong>📊 Розрахунок:</strong><br>
+                <strong> Розрахунок:</strong><br>
                 <span id="breakdown_text">Повна оплата за ${monthCount} ${monthCount === 1 ? 'місяць' : 'місяці'}</span>
               </div>
               
@@ -341,7 +341,7 @@ async function openPaymentModal() {
               
               <div class="mb-3">
                 <div id="amount_info" class="alert alert-success">
-                  <strong>📊 Сума до сплати:</strong> <span id="calculated_amount">500 грн</span> (1 місяць)
+                  <strong> Сума до сплати:</strong> <span id="calculated_amount">500 грн</span> (1 місяць)
                 </div>
               </div>
             </form>
