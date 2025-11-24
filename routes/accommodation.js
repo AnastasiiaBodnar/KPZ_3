@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-const MONTHLY_RATE = 500; // 500 грн за місяць
+const MONTHLY_RATE = 500; 
 
 router.get('/', async (req, res) => {
   try {

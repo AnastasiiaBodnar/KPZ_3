@@ -151,7 +151,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// часткова оплата
+// часткова
 router.post('/:id/partial', async (req, res) => {
   const client = await db.query('BEGIN');
   
@@ -195,7 +195,6 @@ router.post('/:id/partial', async (req, res) => {
       });
     }
     
-    // Часткова оплата - розділяємо на 2 записи
     const monthsPaid = Math.floor(paidAmount / MONTHLY_RATE);
     const monthsRemaining = (payment.month_to - payment.month_from + 1) - monthsPaid;
     
@@ -206,7 +205,6 @@ router.post('/:id/partial', async (req, res) => {
       });
     }
     
-    // 1. Оновлюємо поточний запис - позначаємо як оплачений
     const newMonthTo = payment.month_from + monthsPaid - 1;
     
     await db.query(
@@ -214,7 +212,6 @@ router.post('/:id/partial', async (req, res) => {
       [newMonthTo, paidAmount, payment_date, 'paid', id]
     );
     
-    // 2. Створюємо новий запис для залишку боргу
     const newMonthFrom = newMonthTo + 1;
     
     await db.query(

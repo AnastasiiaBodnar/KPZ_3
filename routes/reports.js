@@ -173,11 +173,9 @@ router.get('/charts/faculty-stats', async (req, res) => {
       SELECT 
         s.faculty,
         COUNT(DISTINCT s.id) as total_students,
-        COUNT(DISTINCT CASE WHEN a.status = 'active' THEN s.id END) as accommodated_students,
-        COALESCE(SUM(CASE WHEN p.status = 'unpaid' THEN p.amount ELSE 0 END), 0) as total_debt
+        COUNT(DISTINCT CASE WHEN a.status = 'active' THEN s.id END) as accommodated_students
       FROM students s
       LEFT JOIN accommodation a ON s.id = a.student_id
-      LEFT JOIN payments p ON s.id = p.student_id
       GROUP BY s.faculty
       ORDER BY s.faculty
     `);
@@ -188,5 +186,35 @@ router.get('/charts/faculty-stats', async (req, res) => {
   }
 });
 
+//складний запит
+router.get('/charts/payments-by-month', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        month_from as month,
+        SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as paid_amount,
+        SUM(CASE WHEN status = 'unpaid' THEN amount ELSE 0 END) as unpaid_amount
+      FROM payments
+      WHERE year = EXTRACT(YEAR FROM CURRENT_DATE)
+      GROUP BY month_from
+      ORDER BY month_from
+    `);
+    
+    const allMonths = [];
+    for (let i = 1; i <= 12; i++) {
+      const monthData = result.rows.find(r => parseInt(r.month) === i);
+      allMonths.push({
+        month: i,
+        paid_amount: monthData ? parseFloat(monthData.paid_amount) : 0,
+        unpaid_amount: monthData ? parseFloat(monthData.unpaid_amount) : 0
+      });
+    }
+    
+    res.json(allMonths);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка бази даних' });
+  }
+});
 
 module.exports = router;

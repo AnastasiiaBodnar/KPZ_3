@@ -6,7 +6,7 @@ router.get('/top-debtors', async (req, res) => {
   try {
     const limit = req.query.limit || 10;
 
-    // складний запит топ боржників
+    // складний запит
     const result = await db.query(`
       SELECT 
         s.id,

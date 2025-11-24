@@ -47,7 +47,6 @@ router.get('/', async (req, res) => {
 
     params.push(limit, offset);
 
-    // склданий запит для карточки студента
     const query = `
       SELECT s.*, 
         r.room_number,
@@ -63,6 +62,7 @@ router.get('/', async (req, res) => {
         WHERE status = 'unpaid'
         GROUP BY student_id
       ) debt_info ON s.id = debt_info.student_id
+      
       ${whereClause}
       ORDER BY ${sortBy} ${sortOrder}
       LIMIT $${params.length - 1} OFFSET $${params.length}
