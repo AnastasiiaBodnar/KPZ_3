@@ -10,7 +10,6 @@ let currentSort = {
 // Глобальні змінні для графіків
 let occupancyChart = null;
 let facultyChart = null;
-let paymentsChart = null;
 
 function showLoading() {
   document.getElementById('loadingSpinner').classList.remove('d-none');
@@ -276,97 +275,12 @@ async function loadDashboardFacultyChart() {
   }
 }
 
-async function loadDashboardPaymentsChart() {
-  try {
-    const response = await fetch(`${API_URL}/reports/charts/payments-by-month`);
-    const data = await response.json();
-
-    const monthNames = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
-    const ctx = document.getElementById('paymentsChart');
-    if (!ctx) return;
-
-    if (paymentsChart) {
-      paymentsChart.destroy();
-    }
-
-    paymentsChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: data.map(d => monthNames[d.month - 1]),
-        datasets: [
-          {
-            label: 'Оплачено (грн)',
-            data: data.map(d => parseFloat(d.paid_amount)),
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            borderColor: 'rgba(75, 192, 192, 1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4,
-            pointHoverRadius: 6
-          },
-          {
-            label: 'Не оплачено (грн)',
-            data: data.map(d => parseFloat(d.unpaid_amount)),
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-            borderColor: 'rgba(255, 99, 132, 1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4,
-            pointHoverRadius: 6
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Сума (грн)'
-            }
-          },
-          x: {
-            title: {
-              display: true,
-              text: 'Місяці'
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              font: {
-                size: 11
-              }
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                return `${context.dataset.label}: ${parseFloat(context.raw).toFixed(2)} грн`;
-              }
-            }
-          }
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Error loading payments chart:', error);
-  }
-}
-
 async function loadDashboardCharts() {
   showLoading();
   try {
     await Promise.all([
       loadOccupancyChart(),
-      loadDashboardFacultyChart(),
-      loadDashboardPaymentsChart()
+      loadDashboardFacultyChart()
     ]);
   } catch (error) {
     console.error('Error loading dashboard charts:', error);
@@ -490,7 +404,6 @@ function changePageAccommodation(page) {
 function changePagePayments(page) {
   loadPayments(page);
 }
-
 
 document.addEventListener('DOMContentLoaded', () => {
   loadStatistics();
