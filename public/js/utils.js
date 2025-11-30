@@ -49,7 +49,7 @@ function showSection(sectionName) {
   switch(sectionName) {
     case 'dashboard':
       loadStatistics();
-      loadDashboardCharts(); // Додаємо завантаження графіків
+      loadDashboardCharts();
       break;
     case 'students':
       loadStudents(null, null, 1);
@@ -63,14 +63,7 @@ function showSection(sectionName) {
     case 'payments':
       loadPayments(1);
       break;
-    case 'analytics':
-      loadTopDebtors();
-      loadFloorsAnalytics();
-      loadStudentSelector();
-      break;
     case 'reports':
-      // Можна закоментувати, якщо графіки перенесені на головну
-      // loadAllCharts();
       break;
   }
 }

@@ -13,7 +13,6 @@ app.use('/api/students', require('./routes/students'));
 app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/accommodation', require('./routes/accommodation'));
 app.use('/api/payments', require('./routes/payments'));
-app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/reports', require('./routes/reports'));
 
 const db = require('./db');
