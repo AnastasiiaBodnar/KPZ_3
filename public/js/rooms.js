@@ -32,14 +32,12 @@ function displayRooms(rooms) {
   const tbody = document.getElementById('rooms-table');
   
   if (rooms.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Кімнат не знайдено</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center">Кімнат немає</td></tr>';
     return;
   }
   
   tbody.innerHTML = rooms.map(room => {
     const freeBeds = room.total_beds - room.occupied_beds;
-    const status = freeBeds > 0 ? 'Вільна' : 'Заповнена';
-    const statusClass = freeBeds > 0 ? 'success' : 'danger';
     
     return `
       <tr>
@@ -49,19 +47,42 @@ function displayRooms(rooms) {
         <td>${room.total_beds}</td>
         <td>${room.occupied_beds}</td>
         <td><strong>${freeBeds}</strong></td>
+        <td><span class="badge bg-${freeBeds > 0 ? 'success' : 'danger'}">${freeBeds > 0 ? 'Вільна' : 'Заповнена'}</span></td>
         <td>
-          <span class="badge bg-${statusClass}">${status}</span>
-        </td>
-        <td>
-          <button class="btn btn-sm btn-warning btn-action" onclick="editRoom(${room.id})" title="Редагувати">
-            <i class="bi bi-pencil"></i>
-          </button>
-          <button class="btn btn-sm btn-danger btn-action" onclick="deleteRoom(${room.id})" title="Видалити">
-            <i class="bi bi-trash"></i>
-          </button>
+          ${room.occupied_beds > 0 ? `<button class="btn btn-sm btn-danger" onclick="clearRoom(${room.id})">Звільнити</button>` : ''}
+          <button class="btn btn-sm btn-warning" onclick="editRoom(${room.id})"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-secondary" onclick="deleteRoom(${room.id})"><i class="bi bi-trash"></i></button>
         </td>
       </tr>`;
   }).join('');
+}
+
+async function clearRoom(roomId) {
+  if (!confirm('Виселити всіх студентів з кімнати?')) return;
+  
+  showLoading();
+  
+  try {
+    const response = await fetch(`${API_URL}/rooms/${roomId}/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      showAlert('Кімнату звільнено!', 'success');
+      loadRooms(currentRoomsPage);
+      loadStatistics();
+    } else {
+      showAlert('Помилка: ' + data.error, 'danger');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    showAlert('Помилка', 'danger');
+  }
+  
+  hideLoading();
 }
 
 async function openRoomModal(roomId = null) {
