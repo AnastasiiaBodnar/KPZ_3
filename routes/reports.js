@@ -3,6 +3,16 @@ const router = express.Router();
 const db = require('../db');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
+const {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell
+} = require("docx");
+
 
 router.get('/students/excel', async (req, res) => {
   try {
@@ -166,7 +176,82 @@ router.get('/debtors/pdf', async (req, res) => {
   }
 });
 
-// складний запит
+router.get('/rooms/word', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        room_number,
+        floor,
+        total_beds,
+        occupied_beds,
+        (total_beds - occupied_beds) AS free_beds
+      FROM rooms
+      ORDER BY room_number
+    `);
+
+    const rooms = result.rows;
+
+    const tableRows = [];
+
+    tableRows.push(
+      new TableRow({
+        children: [
+          new TableCell({ children: [new Paragraph("Кімната")] }),
+          new TableCell({ children: [new Paragraph("Поверх")] }),
+          new TableCell({ children: [new Paragraph("Всього місць")] }),
+          new TableCell({ children: [new Paragraph("Зайнято")] }),
+          new TableCell({ children: [new Paragraph("Вільно")] }),
+        ]
+      })
+    );
+
+    rooms.forEach(r => {
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph(String(r.room_number))] }),
+            new TableCell({ children: [new Paragraph(String(r.floor))] }),
+            new TableCell({ children: [new Paragraph(String(r.total_beds))] }),
+            new TableCell({ children: [new Paragraph(String(r.occupied_beds))] }),
+            new TableCell({ children: [new Paragraph(String(r.free_beds))] }),
+          ]
+        })
+      );
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Заселеність кімнат",
+                  bold: true,
+                  size: 32,
+                }),
+              ],
+            }),
+            new Paragraph(""),
+            new Table({ rows: tableRows }),
+          ],
+        },
+      ],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+
+    res.setHeader("Content-Disposition", "attachment; filename=rooms-occupancy.docx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+    res.send(buffer);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Помилка генерації Word звіту по кімнатах" });
+  }
+});
+
 router.get('/charts/faculty-stats', async (req, res) => {
   try {
     const result = await db.query(`
@@ -186,7 +271,6 @@ router.get('/charts/faculty-stats', async (req, res) => {
   }
 });
 
-//складний запит
 router.get('/charts/payments-by-month', async (req, res) => {
   try {
     const result = await db.query(`
