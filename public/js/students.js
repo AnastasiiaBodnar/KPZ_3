@@ -287,7 +287,7 @@ function openStudentModal(studentId = null) {
                   <label class="form-label">Курс *</label>
                   <select class="form-select" id="course" required>
                     <option value="">Оберіть курс</option>
-                    ${[1,2,3,4,5,6].map(c => `<option value="${c}" ${formData.course == c ? 'selected' : ''}>${c} курс</option>`).join('')}
+                    ${[1,2,3,4].map(c => `<option value="${c}" ${formData.course == c ? 'selected' : ''}>${c} курс</option>`).join('')}
                   </select>
                 </div>
                 <div class="col-md-6 mb-3">
