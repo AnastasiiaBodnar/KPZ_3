@@ -66,14 +66,12 @@ router.get('/available', async (req, res) => {
   }
 });
 
-// ТРАНЗАКЦІЯ: Звільнити кімнату
 router.post('/:id/clear', async (req, res) => {
   const roomId = req.params.id;
   
   try {
     await db.query('BEGIN');
     
-    // Перевіряємо кімнату
     const room = await db.query('SELECT * FROM rooms WHERE id = ' + roomId);
     
     if (room.rows.length === 0) {
@@ -81,10 +79,8 @@ router.post('/:id/clear', async (req, res) => {
       return res.status(404).json({ error: 'Кімната не знайдена' });
     }
     
-    // Виселяємо студентів
     await db.query('UPDATE accommodation SET status = \'moved_out\', date_out = NOW() WHERE room_id = ' + roomId + ' AND status = \'active\'');
     
-    // Обнуляємо кімнату
     await db.query('UPDATE rooms SET occupied_beds = 0 WHERE id = ' + roomId);
     
     await db.query('COMMIT');

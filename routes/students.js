@@ -164,7 +164,6 @@ router.get('/:id/roommates', async (req, res) => {
   }
 });
 
-// складний запит
 router.get('/:id/coursemates', async (req, res) => {
   try {
     const { id } = req.params;
@@ -224,7 +223,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// оновити студента
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;

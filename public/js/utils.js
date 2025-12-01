@@ -7,7 +7,6 @@ let currentSort = {
   payments: { field: 'id', order: 'ASC' }
 };
 
-// Глобальні змінні для графіків
 let occupancyChart = null;
 let facultyChart = null;
 
