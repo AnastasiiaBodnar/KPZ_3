@@ -10,6 +10,28 @@ let currentSort = {
 let occupancyChart = null;
 let facultyChart = null;
 
+// перевірка авторизації
+function checkAuth() {
+  const userData = localStorage.getItem('user');
+  if (!userData) {
+    window.location.href = '/login.html';
+    return null;
+  }
+  
+  const user = JSON.parse(userData);
+  if (user.role !== 'admin') {
+    window.location.href = '/login.html';
+    return null;
+  }
+  
+  return user;
+}
+
+function logout() {
+  localStorage.removeItem('user');
+  window.location.href = '/login.html';
+}
+
 function showLoading() {
   document.getElementById('loadingSpinner').classList.remove('d-none');
 }
@@ -405,18 +427,31 @@ function changePagePayments(page) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadStatistics();
-
-  const searchInput = document.getElementById('searchStudent');
-  if (searchInput) {
-    searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        navigateSearch(1); 
-      } else if (e.key === 'Enter' && e.shiftKey) {
-        e.preventDefault();
-        navigateSearch(-1); 
+  // перевірка авторизації тільки якщо не на сторінці входу
+  if (!window.location.pathname.includes('login.html') && 
+      !window.location.pathname.includes('student.html')) {
+    const currentUser = checkAuth();
+    if (currentUser) {
+      // показуємо ім'я адміна
+      const userNameSpan = document.querySelector('.navbar-text');
+      if (userNameSpan) {
+        userNameSpan.innerHTML = `<i class="bi bi-person-circle"></i> ${currentUser.name}`;
       }
-    });
+      
+      loadStatistics();
+
+      const searchInput = document.getElementById('searchStudent');
+      if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            navigateSearch(1); 
+          } else if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault();
+            navigateSearch(-1); 
+          }
+        });
+      }
+    }
   }
 });

@@ -14,6 +14,7 @@ app.use('/api/rooms', require('./routes/rooms'));
 app.use('/api/accommodation', require('./routes/accommodation'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/auth', require('./routes/auth'));
 
 const db = require('./db');
 
